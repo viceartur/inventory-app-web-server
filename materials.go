@@ -195,6 +195,7 @@ func getMaterials(db *sql.DB) ([]MaterialDB, error) {
 		LEFT JOIN customers c ON c.customer_id = m.customer_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+		WHERE m.location_id IS NOT NULL
 		`)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
@@ -653,7 +654,13 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 		}
 	} else if actualQuantity == quantity {
 		defer func() error {
-			_, err = tx.Exec("DELETE FROM materials WHERE material_id = $1", currMaterialId)
+			_, err = tx.Exec(`
+				UPDATE materials
+				SET location_id = NULL,
+					quantity = 0
+				WHERE material_id = $1`,
+				currMaterialId,
+			)
 			if err != nil {
 				tx.Rollback()
 				return err
@@ -772,13 +779,16 @@ func removeMaterial(ctx context.Context, db *sql.DB, material MaterialToRemoveJS
 	if actualQuantity < quantity {
 		return errors.New(`The removing quantity (` + strconv.Itoa(quantity) + `) is more than the actual one (` + strconv.Itoa(actualQuantity) + `)`)
 	} else if actualQuantity == quantity {
-		// Remove the Material from the DB
-		_, err = tx.Exec("DELETE FROM materials WHERE material_id = $1", materialId)
+		_, err = tx.Exec(`
+			UPDATE materials
+			SET location_id = NULL,
+				quantity = 0
+			WHERE material_id = $1
+		`, materialId)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-		return nil
 	} else {
 		// Update the material quantity
 		_, err = tx.Exec(`

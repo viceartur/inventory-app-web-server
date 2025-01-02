@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log"
 )
 
 type LocationFilter struct {
@@ -26,7 +25,6 @@ func fetchLocations(db *sql.DB) ([]LocationDB, error) {
 		ORDER BY l.name ASC;
 	`)
 	if err != nil {
-		log.Println("Error fetchLocations1: ", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -36,7 +34,6 @@ func fetchLocations(db *sql.DB) ([]LocationDB, error) {
 	for rows.Next() {
 		var location LocationDB
 		if err := rows.Scan(&location.ID, &location.Name, &location.WarehouseID, &location.WarehouseName); err != nil {
-			log.Println("Error fetchLocations2: ", err)
 			return locations, err
 		}
 		locations = append(locations, location)
@@ -57,7 +54,6 @@ func fetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, err
 		ORDER BY l.name ASC;
 	`, opts.stockId, opts.owner)
 	if err != nil {
-		log.Println("Error fetchAvailableLocations1: ", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -67,7 +63,6 @@ func fetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, err
 	for rows.Next() {
 		var location LocationDB
 		if err := rows.Scan(&location.ID, &location.Name, &location.WarehouseID); err != nil {
-			log.Println("Error fetchAvailableLocations2: ", err)
 			return locations, err
 		}
 		locations = append(locations, location)

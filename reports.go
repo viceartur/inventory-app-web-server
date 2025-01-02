@@ -21,6 +21,7 @@ type Transaction struct {
 
 type SearchQuery struct {
 	customerId   int
+	owner        string
 	materialType string
 	dateFrom     string
 	dateTo       string
@@ -52,7 +53,6 @@ type TransactionRep struct {
 
 type BalanceRep struct {
 	StockID      string
-	LocationName string
 	MaterialType string
 	Qty          string
 	TotalValue   string
@@ -76,9 +76,10 @@ func (t TransactionReport) getReportList() ([]TransactionRep, error) {
 								($1 = 0 OR m.customer_id = $1) AND
 								($2 = '' OR m.material_type::TEXT = $2) AND
 								($3 = '' OR tl.updated_at::TEXT >= $3) AND
-								($4 = '' OR tl.updated_at::TEXT <= $4)
+								($4 = '' OR tl.updated_at::TEXT <= $4) AND
+								($5 = '' OR m.owner::TEXT = $5)
 							 ORDER BY transaction_id;`,
-		t.trxFilter.customerId, t.trxFilter.materialType, t.trxFilter.dateFrom, t.trxFilter.dateTo)
+		t.trxFilter.customerId, t.trxFilter.materialType, t.trxFilter.dateFrom, t.trxFilter.dateTo, t.trxFilter.owner)
 	if err != nil {
 		return []TransactionRep{}, err
 	}
@@ -123,21 +124,21 @@ func (t TransactionReport) getReportList() ([]TransactionRep, error) {
 func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 	rows, err := b.db.Query(`
 	SELECT m.stock_id,
-		   COALESCE(l.name, 'None') as "location_name",
 		   m.material_type,
 		   SUM(tl.quantity_change) AS "quantity",
 		   SUM(tl.quantity_change * p.cost) AS "total_value"
 	FROM transactions_log tl
 	LEFT JOIN prices p ON p.price_id = tl.price_id
 	LEFT JOIN materials m ON m.material_id = p.material_id
-	LEFT JOIN locations l ON l.location_id = m.location_id
 	WHERE
 		($1 = 0 OR m.customer_id = $1) AND
 		($2 = '' OR m.material_type::TEXT = $2) AND
-		($3 = '' OR tl.updated_at::TEXT <= $3)
-	GROUP BY m.stock_id, l.name, m.material_type
+		($3 = '' OR tl.updated_at::TEXT <= $3) AND
+		($4 = '' OR m.owner::TEXT = $4) AND
+		m.location_id IS NOT NULL
+	GROUP BY m.stock_id, m.material_type
 `,
-		b.blcFilter.customerId, b.blcFilter.materialType, b.blcFilter.dateAsOf,
+		b.blcFilter.customerId, b.blcFilter.materialType, b.blcFilter.dateAsOf, b.blcFilter.owner,
 	)
 	if err != nil {
 		return []BalanceRep{}, err
@@ -150,7 +151,6 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 
 		err := rows.Scan(
 			&balance.StockID,
-			&balance.LocationName,
 			&balance.MaterialType,
 			&balance.Qty,
 			&balance.TotalValue,
@@ -162,7 +162,6 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 		totalValue := accLib.FormatMoney(balance.TotalValue)
 		blcList = append(blcList, BalanceRep{
 			StockID:      balance.StockID,
-			LocationName: balance.LocationName,
 			MaterialType: balance.MaterialType,
 			Qty:          strconv.Itoa(balance.Qty),
 			TotalValue:   totalValue,

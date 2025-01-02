@@ -259,12 +259,14 @@ func getTransactionsReport(w http.ResponseWriter, r *http.Request) {
 
 	customerIdStr := r.URL.Query().Get("customerId")
 	customerId, _ := strconv.Atoi(customerIdStr)
+	owner := r.URL.Query().Get("owner")
 	materialType := r.URL.Query().Get("materialType")
 	dateFrom := r.URL.Query().Get("dateFrom")
 	dateTo := r.URL.Query().Get("dateTo")
 
 	trxRep := TransactionReport{Report: Report{db: db}, trxFilter: SearchQuery{
 		customerId:   customerId,
+		owner:        owner,
 		materialType: materialType,
 		dateFrom:     dateFrom,
 		dateTo:       dateTo,
@@ -284,11 +286,13 @@ func getBalanceReport(w http.ResponseWriter, r *http.Request) {
 
 	customerIdStr := r.URL.Query().Get("customerId")
 	customerId, _ := strconv.Atoi(customerIdStr)
+	owner := r.URL.Query().Get("owner")
 	materialType := r.URL.Query().Get("materialType")
 	dateAsOf := r.URL.Query().Get("dateAsOf")
 
 	balanceRep := BalanceReport{Report: Report{db: db}, blcFilter: SearchQuery{
 		customerId:   customerId,
+		owner:        owner,
 		materialType: materialType,
 		dateAsOf:     dateAsOf,
 	}}
