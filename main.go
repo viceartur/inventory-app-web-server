@@ -305,7 +305,9 @@ func importData(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
 
-	importRes, err := importDataToDB(db)
+	var dataToImport ImportJSON
+	json.NewDecoder(r.Body).Decode(&dataToImport)
+	importRes, err := importDataToDB(db, dataToImport)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
