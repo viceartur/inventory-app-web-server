@@ -600,6 +600,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
 			&currMaterial.UpdatedAt,
 			&currMaterial.IsActive,
 			&currMaterial.Owner,
+			&currMaterial.IsPrimary,
 		)
 	if err != nil {
 		return MaterialDB{}, err
