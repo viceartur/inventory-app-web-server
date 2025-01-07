@@ -10,6 +10,7 @@ import (
 
 type Transaction struct {
 	StockID      string    `field:"stock_id"`
+	Description  string    `field:"description"`
 	LocationName string    `field:"location_name"`
 	MaterialType string    `field:"material_type"`
 	Qty          int       `field:"quantity"`
@@ -53,6 +54,7 @@ type TransactionRep struct {
 
 type BalanceRep struct {
 	StockID      string
+	Description  string
 	MaterialType string
 	Qty          string
 	TotalValue   string
@@ -123,20 +125,21 @@ func (t TransactionReport) getReportList() ([]TransactionRep, error) {
 
 func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 	rows, err := b.db.Query(`
-	SELECT m.stock_id,
-		   m.material_type,
-		   SUM(tl.quantity_change) AS "quantity",
-		   SUM(tl.quantity_change * p.cost) AS "total_value"
-	FROM transactions_log tl
-	LEFT JOIN prices p ON p.price_id = tl.price_id
-	LEFT JOIN materials m ON m.material_id = p.material_id
-	WHERE
-		($1 = 0 OR m.customer_id = $1) AND
-		($2 = '' OR m.material_type::TEXT = $2) AND
-		($3 = '' OR tl.updated_at::TEXT <= $3) AND
-		($4 = '' OR m.owner::TEXT = $4) AND
-		m.location_id IS NOT NULL
-	GROUP BY m.stock_id, m.material_type
+		SELECT m.stock_id,
+			m.description,
+			m.material_type,
+			SUM(tl.quantity_change) AS "quantity",
+			SUM(tl.quantity_change * p.cost) AS "total_value"
+		FROM transactions_log tl
+		LEFT JOIN prices p ON p.price_id = tl.price_id
+		LEFT JOIN materials m ON m.material_id = p.material_id
+		WHERE
+			($1 = 0 OR m.customer_id = $1) AND
+			($2 = '' OR m.material_type::TEXT = $2) AND
+			($3 = '' OR tl.updated_at::TEXT <= $3) AND
+			($4 = '' OR m.owner::TEXT = $4) AND
+			m.location_id IS NOT NULL
+		GROUP BY m.stock_id, m.description, m.material_type
 `,
 		b.blcFilter.customerId, b.blcFilter.materialType, b.blcFilter.dateAsOf, b.blcFilter.owner,
 	)
@@ -151,6 +154,7 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 
 		err := rows.Scan(
 			&balance.StockID,
+			&balance.Description,
 			&balance.MaterialType,
 			&balance.Qty,
 			&balance.TotalValue,
@@ -162,6 +166,7 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 		totalValue := accLib.FormatMoney(balance.TotalValue)
 		blcList = append(blcList, BalanceRep{
 			StockID:      balance.StockID,
+			Description:  balance.Description,
 			MaterialType: balance.MaterialType,
 			Qty:          strconv.Itoa(balance.Qty),
 			TotalValue:   totalValue,

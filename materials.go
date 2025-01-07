@@ -44,6 +44,7 @@ type MaterialJSON struct {
 	LocationID string `json:"locationId"`
 	Qty        string `json:"quantity"`
 	Notes      string `json:"notes"`
+	IsPrimary  string `json:"isPrimary"`
 }
 
 // Remove Material
@@ -70,6 +71,14 @@ type MaterialDB struct {
 	MinQty        int       `field:"min_required_quantity"`
 	MaxQty        int       `field:"max_required_quantity"`
 	Owner         string    `field:"onwer"`
+	IsPrimary     bool      `field:"is_primary"`
+}
+
+type MaterialFilter struct {
+	stockId      string
+	customerName string
+	description  string
+	locationName string
 }
 
 type Price struct {
@@ -182,21 +191,29 @@ func getIncomingMaterials(db *sql.DB) ([]IncomingMaterialDB, error) {
 	return materials, nil
 }
 
-func getMaterials(db *sql.DB) ([]MaterialDB, error) {
+func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 	rows, err := db.Query(`
 		SELECT material_id,
 		COALESCE(w.name,'None') as "warehouse_name",
 		c.name as "customer_name", c.customer_id,
-		COALESCE(l.location_id, 0),
+		COALESCE(l.location_id, 0) as "location_id",
 		COALESCE(l.name, 'None') as "location_name",
 		stock_id, quantity, min_required_quantity, max_required_quantity,
-		m.description, COALESCE(notes,'None'), is_active, material_type, owner
+		m.description, COALESCE(notes,'None') as "notes",
+		is_active, material_type, owner,
+		COALESCE(is_primary,false) as "is_primary"
 		FROM materials m
 		LEFT JOIN customers c ON c.customer_id = m.customer_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
-		WHERE m.location_id IS NOT NULL
-		`)
+		WHERE
+			m.location_id IS NOT NULL AND
+			($1 = '' OR m.stock_id ILIKE '%' || $1 || '%') AND
+			($2 = '' OR c.name ILIKE '%' || $2 || '%') AND
+			($3 = '' OR m.description ILIKE '%' || $3 || '%') AND
+			($4 = '' OR l.name ILIKE '%' || $4 || '%')
+		ORDER BY m.stock_id ASC;
+		`, opts.stockId, opts.customerName, opts.description, opts.locationName)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
 	}
@@ -221,6 +238,7 @@ func getMaterials(db *sql.DB) ([]MaterialDB, error) {
 			&material.IsActive,
 			&material.MaterialType,
 			&material.Owner,
+			&material.IsPrimary,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
 		}
@@ -815,5 +833,18 @@ func removeMaterial(ctx context.Context, db *sql.DB, material MaterialToRemoveJS
 		return err
 	}
 
+	return nil
+}
+
+func updateMaterial(db *sql.DB, material MaterialJSON) error {
+	materialId, _ := strconv.Atoi(material.MaterialID)
+	_, err := db.Exec(`
+		UPDATE materials
+		SET is_primary = $2
+		WHERE material_id = $1
+	`, materialId, material.IsPrimary)
+	if err != nil {
+		return err
+	}
 	return nil
 }

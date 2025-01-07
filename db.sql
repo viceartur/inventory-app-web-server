@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS materials (
 	max_required_quantity INT,
 	updated_at DATE,
 	is_active BOOLEAN NOT NULL,
-	owner OWNER NOT NULL
+	owner OWNER NOT NULL,
+	is_primary BOOLEAN NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS prices (

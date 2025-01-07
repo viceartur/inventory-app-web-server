@@ -26,7 +26,7 @@ type ErrorResponseJSON struct {
 func main() {
 	router := mux.NewRouter()
 	origins := handlers.AllowedOrigins([]string{"*"})
-	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
 	headers := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
 
 	// Routes
@@ -35,6 +35,7 @@ func main() {
 
 	router.HandleFunc("/materials", createMaterialHandler).Methods("POST")
 	router.HandleFunc("/materials", getMaterialsHandler).Methods("GET")
+	router.HandleFunc("/materials", updateMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/material_types", getMaterialTypesHandler).Methods("GET")
 	router.HandleFunc("/materials/move-to-location", moveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/remove-from-location", removeMaterialHandler).Methods("PATCH")
@@ -152,7 +153,13 @@ func createMaterialHandler(w http.ResponseWriter, r *http.Request) {
 func getMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
-	materials, err := getMaterials(db)
+
+	stockId := r.URL.Query().Get("stockId")
+	customerName := r.URL.Query().Get("customerName")
+	description := r.URL.Query().Get("description")
+	locationName := r.URL.Query().Get("locationName")
+	filterOpts := &MaterialFilter{stockId: stockId, customerName: customerName, description: description, locationName: locationName}
+	materials, err := getMaterials(db, filterOpts)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -160,6 +167,24 @@ func getMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(materials)
+}
+
+func updateMaterialHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+
+	var material MaterialJSON
+	json.NewDecoder(r.Body).Decode(&material)
+	err := updateMaterial(db, material)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Material Updated"}
+	json.NewEncoder(w).Encode(res)
 }
 
 func moveMaterialHandler(w http.ResponseWriter, r *http.Request) {
