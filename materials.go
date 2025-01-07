@@ -212,7 +212,7 @@ func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 			($2 = '' OR c.name ILIKE '%' || $2 || '%') AND
 			($3 = '' OR m.description ILIKE '%' || $3 || '%') AND
 			($4 = '' OR l.name ILIKE '%' || $4 || '%')
-		ORDER BY m.stock_id ASC;
+		ORDER BY m.is_primary DESC NULLS LAST, m.stock_id ASC;
 		`, opts.stockId, opts.customerName, opts.description, opts.locationName)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
