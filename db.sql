@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS materials (
 	updated_at DATE,
 	is_active BOOLEAN NOT NULL,
 	owner OWNER NOT NULL,
-	is_primary BOOLEAN
+	is_primary BOOLEAN NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS prices (

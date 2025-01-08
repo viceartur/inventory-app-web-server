@@ -37,6 +37,11 @@ type IncomingMaterialDB struct {
 	Owner        string  `field:"owner"`
 }
 
+type IncomingMaterial struct {
+	shippingId int
+	qty        int
+}
+
 // Create Material
 // Move Material
 type MaterialJSON struct {
@@ -44,7 +49,7 @@ type MaterialJSON struct {
 	LocationID string `json:"locationId"`
 	Qty        string `json:"quantity"`
 	Notes      string `json:"notes"`
-	IsPrimary  string `json:"isPrimary"`
+	IsPrimary  bool   `json:"isPrimary"`
 }
 
 // Remove Material
@@ -455,9 +460,9 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 
 	// Upsert Prices
 	var priceId int
+	qty, _ := strconv.Atoi(material.Qty)
 
 	if materialId != 0 {
-		qty, _ := strconv.Atoi(material.Qty)
 		priceInfo := Price{materialId: materialId, qty: qty, cost: incomingMaterial.Cost}
 		priceId, err = upsertPrice(tx, priceInfo)
 		if err != nil {
@@ -516,9 +521,10 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 							min_required_quantity,
 							max_required_quantity,
 							is_active,
-							owner
+							owner,
+							is_primary
 						)
-						VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING material_id;`,
+						VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING material_id;`,
 				incomingMaterial.StockID,
 				material.LocationID,
 				incomingMaterial.CustomerID,
@@ -531,6 +537,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				incomingMaterial.MaxQty,
 				incomingMaterial.IsActive,
 				incomingMaterial.Owner,
+				material.IsPrimary,
 			).Scan(&materialId)
 			if err != nil {
 				tx.Rollback()
@@ -539,7 +546,6 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 		}
 
 		// Upsert Prices
-		qty, _ := strconv.Atoi(material.Qty)
 		priceInfo := Price{materialId: materialId, qty: qty, cost: incomingMaterial.Cost}
 		priceId, err = upsertPrice(tx, priceInfo)
 		if err != nil {
@@ -548,16 +554,24 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 		}
 	}
 
-	// Remove the Material from Incoming
+	// Delete/Update the Material from Incoming
 	shippingId, _ := strconv.Atoi(material.MaterialID)
-	err = deleteIncomingMaterial(tx, shippingId)
-	if err != nil {
-		tx.Rollback()
-		return 0, err
+	if incomingMaterial.Quantity == qty {
+		err = deleteIncomingMaterial(tx, shippingId)
+		if err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+	} else {
+		material := &IncomingMaterial{shippingId: shippingId, qty: -qty}
+		err = updateIncomingMaterial(tx, material)
+		if err != nil {
+			tx.Rollback()
+			return 0, err
+		}
 	}
 
 	// Add a Transaction
-	qty, _ := strconv.Atoi(material.Qty)
 	trxInfo := &TransactionInfo{
 		priceId:   priceId,
 		qty:       qty,
@@ -573,6 +587,21 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	return materialId, nil
 }
 
+// Update an Incoming Material with parameters passed
+func updateIncomingMaterial(tx *sql.Tx, material *IncomingMaterial) error {
+	_, err := tx.Exec(`
+					UPDATE incoming_materials
+					SET quantity = (quantity + $2)
+					WHERE shipping_id = $1
+					`, material.shippingId, material.qty,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Delete an Incoming Material once it's accepted
 func deleteIncomingMaterial(tx *sql.Tx, shippingId int) error {
 	if _, err := tx.Exec(`
 			DELETE FROM incoming_materials WHERE shipping_id = $1;`,
@@ -650,7 +679,7 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			WHERE material_id = $3 AND location_id = $4
 			RETURNING material_id, stock_id, location_id, customer_id, material_type,
 					description, notes, quantity, updated_at, is_active,
-					min_required_quantity, max_required_quantity, owner;
+					min_required_quantity, max_required_quantity, owner, is_primary;
 			`, quantity, currNotes, currMaterialId, currentLocationId,
 		).Scan(
 			&currMaterial.MaterialID,
@@ -666,6 +695,7 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			&currMaterial.MinQty,
 			&currMaterial.MaxQty,
 			&currMaterial.Owner,
+			&currMaterial.IsPrimary,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -733,13 +763,13 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 				INSERT INTO materials
 					(stock_id, location_id,
 					customer_id, material_type, description, notes, quantity, updated_at,
-					is_active, min_required_quantity, max_required_quantity, owner)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+					is_active, min_required_quantity, max_required_quantity, owner, is_primary)
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 					RETURNING material_id;`,
 			stockId, newLocationId,
 			currMaterial.CustomerID, currMaterial.MaterialType, currMaterial.Description,
 			currNotes, quantity, time.Now(), currMaterial.IsActive,
-			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner).
+			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner, currMaterial.IsPrimary).
 			Scan(&newMaterialId)
 		if err != nil {
 			return err

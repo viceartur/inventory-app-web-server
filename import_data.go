@@ -53,15 +53,6 @@ type ImportResponse struct {
 }
 
 func importDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
-	db.Query(`
-		DELETE FROM transactions_log;
-		DELETE FROM prices;
-		DELETE FROM materials;
-		DELETE FROM locations;
-		DELETE FROM customers;
-		DELETE FROM warehouses;
-	`)
-
 	materialsCounter := 0
 	notImportedData := []ImportData{}
 	locations := []string{}
@@ -176,8 +167,8 @@ func importDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 			INSERT INTO materials(
 					stock_id,location_id,customer_id,material_type,
 					description,notes,quantity,min_required_quantity,
-					max_required_quantity,is_active,owner,updated_at)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
+					max_required_quantity,is_active,owner,updated_at,is_primary)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),false)
 			RETURNING material_id`,
 			importData.StockID, locationId, customerId, importData.MaterialType,
 			importData.Description, importData.Notes, importData.Qty, importData.MinQty, importData.MaxQty, importData.IsActive, importData.Owner).
