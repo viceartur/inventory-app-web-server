@@ -21,7 +21,7 @@ DROP TYPE IF EXISTS owner;
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
 	name VARCHAR(100) NOT NULL UNIQUE,
-	customer_code VARCHAR(100)
+	customer_code VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS warehouses (
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
 CREATE TABLE IF NOT EXISTS locations (
 	location_id SERIAL PRIMARY KEY,
 	name VARCHAR(100) NOT NULL,
-	warehouse_id INT REFERENCES warehouses (warehouse_id),
+	warehouse_id INT REFERENCES warehouses (warehouse_id) NOT NULL,
 	CONSTRAINT unique_location_name_warehouse_id UNIQUE (name, warehouse_id)
 );
 
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS materials (
 	material_id SERIAL PRIMARY KEY,
 	stock_id VARCHAR(100) NOT NULL,
 	location_id INT REFERENCES locations (location_id) UNIQUE,
-	customer_id INT REFERENCES customers (customer_id),
+	customer_id INT REFERENCES customers (customer_id) NOT NULL,
 	material_type MATERIAL_TYPE NOT NULL,
 	description TEXT,
 	notes TEXT,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS materials (
 
 CREATE TABLE IF NOT EXISTS prices (
 	price_id SERIAL PRIMARY KEY,
-	material_id INT REFERENCES materials (material_id) ON DELETE CASCADE,
+	material_id INT REFERENCES materials (material_id) ON DELETE CASCADE NOT NULL,
 	quantity INT NOT NULL,
 	cost DECIMAL NOT NULL,
 	CONSTRAINT unique_material_id_cost UNIQUE (material_id, cost)
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS prices (
 
 CREATE TABLE IF NOT EXISTS transactions_log (
 	transaction_id SERIAL PRIMARY KEY,
-	price_id INT REFERENCES prices (price_id) ON DELETE CASCADE,
+	price_id INT REFERENCES prices (price_id) ON DELETE CASCADE NOT NULL,
 	quantity_change INT NOT NULL,
 	notes TEXT,
 	job_ticket VARCHAR(100),
@@ -92,13 +92,13 @@ CREATE TABLE IF NOT EXISTS transactions_log (
 
 CREATE TABLE IF NOT EXISTS incoming_materials (
 	shipping_id SERIAL PRIMARY KEY,
-	customer_id INT REFERENCES customers (customer_id),
+	customer_id INT REFERENCES customers (customer_id) NOT NULL,
 	stock_id VARCHAR(100) NOT NULL,
 	cost DECIMAL NOT NULL,
 	quantity INT NOT NULL,
 	min_required_quantity INT,
 	max_required_quantity INT,
-	description TEXT,
+	description TEXT NOT NULL,
 	is_active BOOLEAN NOT NULL,
 	type VARCHAR(100) NOT NULL,
 	owner OWNER NOT NULL
