@@ -413,13 +413,14 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 
 	var incomingMaterial IncomingMaterialDB
 	err = tx.QueryRow(`
-		SELECT customer_id, stock_id, cost, min_required_quantity,
+		SELECT customer_id, stock_id, quantity, cost, min_required_quantity,
 		max_required_quantity, description, is_active, type, owner
 		FROM incoming_materials
 		WHERE shipping_id = $1`, material.MaterialID).
 		Scan(
 			&incomingMaterial.CustomerID,
 			&incomingMaterial.StockID,
+			&incomingMaterial.Quantity,
 			&incomingMaterial.Cost,
 			&incomingMaterial.MinQty,
 			&incomingMaterial.MaxQty,
