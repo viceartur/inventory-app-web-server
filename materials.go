@@ -80,6 +80,7 @@ type MaterialDB struct {
 }
 
 type MaterialFilter struct {
+	materialId   int
 	stockId      string
 	customerName string
 	description  string
@@ -160,13 +161,14 @@ func sendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 	return nil
 }
 
-func getIncomingMaterials(db *sql.DB) ([]IncomingMaterialDB, error) {
+func getIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, error) {
 	rows, err := db.Query(`
 		SELECT shipping_id, c.name, c.customer_id, stock_id, cost, quantity,
 		min_required_quantity, max_required_quantity, description, is_active, type, owner
 		FROM incoming_materials im
 		LEFT JOIN customers c ON c.customer_id = im.customer_id
-		`)
+		WHERE $1 = 0 OR im.shipping_id = $1;
+		`, materialId)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
 	}
@@ -213,12 +215,19 @@ func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 		WHERE
 			m.location_id IS NOT NULL AND
-			($1 = '' OR m.stock_id ILIKE '%' || $1 || '%') AND
-			($2 = '' OR c.name ILIKE '%' || $2 || '%') AND
-			($3 = '' OR m.description ILIKE '%' || $3 || '%') AND
-			($4 = '' OR l.name ILIKE '%' || $4 || '%')
+			($1 = 0 OR m.material_id = $1) AND
+			($2 = '' OR m.stock_id ILIKE '%' || $2 || '%') AND
+			($3 = '' OR c.name ILIKE '%' || $3 || '%') AND
+			($4 = '' OR m.description ILIKE '%' || $4 || '%') AND
+			($5 = '' OR l.name ILIKE '%' || $5 || '%')
 		ORDER BY m.is_primary DESC NULLS LAST, m.stock_id ASC;
-		`, opts.stockId, opts.customerName, opts.description, opts.locationName)
+		`,
+		opts.materialId,
+		opts.stockId,
+		opts.customerName,
+		opts.description,
+		opts.locationName,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
 	}

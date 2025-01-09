@@ -120,7 +120,10 @@ func sendMaterialHandler(w http.ResponseWriter, r *http.Request) {
 func getIncomingMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
-	materials, err := getIncomingMaterials(db)
+
+	materialId := r.URL.Query().Get("materialId")
+	id, _ := strconv.Atoi(materialId)
+	materials, err := getIncomingMaterials(db, id)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -154,11 +157,20 @@ func getMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
 
+	materialId := r.URL.Query().Get("materialId")
+	id, _ := strconv.Atoi(materialId)
 	stockId := r.URL.Query().Get("stockId")
 	customerName := r.URL.Query().Get("customerName")
 	description := r.URL.Query().Get("description")
 	locationName := r.URL.Query().Get("locationName")
-	filterOpts := &MaterialFilter{stockId: stockId, customerName: customerName, description: description, locationName: locationName}
+
+	filterOpts := &MaterialFilter{
+		materialId:   id,
+		stockId:      stockId,
+		customerName: customerName,
+		description:  description,
+		locationName: locationName,
+	}
 	materials, err := getMaterials(db, filterOpts)
 
 	if err != nil {
