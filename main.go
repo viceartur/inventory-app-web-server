@@ -11,7 +11,6 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 )
 
@@ -24,18 +23,13 @@ type ErrorResponseJSON struct {
 	Message string `json:"message"`
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
 func main() {
 	router := mux.NewRouter()
 	origins := handlers.AllowedOrigins([]string{"*"})
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
 	headers := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
 
-	// Web Sockets
+	// Web Socket
 	router.HandleFunc("/ws", wsEndpoint)
 
 	// Routes
@@ -73,15 +67,26 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(origins, methods, headers)(router)))
 }
 
+// Web Socket
 func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
-
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Upgrade error:", err)
+		return
 	}
+	addClient(ws)
+	go reader(ws)
+	/*
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
 
-	reader(ws)
+		for {
+			select {
+			case <-ticker.C:
+				broadcastMessage(Message{Type: "heartbeat", Data: "Hello, clients!"})
+			}
+		}*/
 }
 
 // Controllers

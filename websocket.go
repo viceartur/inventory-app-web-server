@@ -3,8 +3,18 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"sync"
 
 	"github.com/gorilla/websocket"
+)
+
+var (
+	upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+	wsActiveClients = make(map[*websocket.Conn]bool)
+	clientsMutex    sync.Mutex
 )
 
 type Message struct {
@@ -12,47 +22,65 @@ type Message struct {
 	Data any    `json:"data,omitempty"`
 }
 
+func addClient(conn *websocket.Conn) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+	wsActiveClients[conn] = true
+}
+
 func reader(conn *websocket.Conn) {
 	for {
-		messageType, p, err := conn.ReadMessage()
+		_, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("Websocket Read Message error:", err)
+			log.Println("ReadMessage error:", err)
 			return
 		}
 
-		log.Println(string(p))
+		log.Println("WS reader recieved:", string(p))
 
-		switch message := string(p); message {
-		case "sendMaterial":
-			handleSendMaterial(conn, messageType)
-		default:
-			log.Println("WS unhandled message type:", message)
+		if string(p) == "materialsUpdated" {
+			handleSendMaterial()
+		} else {
+			handleChatMessage(string(p))
 		}
-
 	}
 }
 
-func handleSendMaterial(conn *websocket.Conn, messageType int) {
+func handleChatMessage(message string) {
+	// Broadcast the message to all clients
+	msg := Message{Type: "chatMessage", Data: message}
+	broadcastMessage(msg)
+}
+
+func handleSendMaterial() {
 	db, _ := connectToDB()
 	materials, err := getIncomingMaterials(db, 0)
-
 	if err != nil {
 		log.Println("WS error getting materials:", err)
 		return
 	}
 
-	msg, err := json.Marshal(
-		Message{
-			Type: "incomingMaterialsQty",
-			Data: len(materials),
-		},
-	)
+	// Broadcast the message to all clients
+	msg := Message{Type: "incomingMaterialsQty", Data: len(materials)}
+	broadcastMessage(msg)
+}
+
+func broadcastMessage(message Message) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	msg, err := json.Marshal(message)
 	if err != nil {
-		log.Println("WS error encoding JSON:", err)
+		log.Println("WS Broadcast error encoding message:", err)
 		return
 	}
-	if err := conn.WriteMessage(messageType, []byte(msg)); err != nil {
-		log.Println("WS Write Message error:", err)
-		return
+
+	for client := range wsActiveClients {
+		if err := client.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Println("WS Broadcast WriteMessage error:", err)
+			client.Close()
+			delete(wsActiveClients, client)
+		}
+
 	}
 }
