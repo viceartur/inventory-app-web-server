@@ -36,20 +36,10 @@ func reader(conn *websocket.Conn) {
 			return
 		}
 
-		log.Println("WS reader recieved:", string(p))
-
 		if string(p) == "materialsUpdated" {
 			handleSendMaterial()
-		} else {
-			handleChatMessage(string(p))
 		}
 	}
-}
-
-func handleChatMessage(message string) {
-	// Broadcast the message to all clients
-	msg := Message{Type: "chatMessage", Data: message}
-	broadcastMessage(msg)
 }
 
 func handleSendMaterial() {
