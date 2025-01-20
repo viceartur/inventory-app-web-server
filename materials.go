@@ -566,7 +566,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 
 	// Delete/Update the Material from Incoming
 	shippingId, _ := strconv.Atoi(material.MaterialID)
-	if incomingMaterial.Quantity == qty {
+	if (incomingMaterial.Quantity == qty) || (incomingMaterial.Quantity < qty) {
 		err = deleteIncomingMaterial(tx, shippingId)
 		if err != nil {
 			tx.Rollback()
