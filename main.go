@@ -56,6 +56,8 @@ func main() {
 
 	router.HandleFunc("/import_data", importData).Methods("POST")
 
+	router.HandleFunc("/users/auth", authUsersHandler).Methods("POST")
+
 	// Env loading
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -65,6 +67,23 @@ func main() {
 
 	fmt.Println("Server running on port: " + port)
 	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(origins, methods, headers)(router)))
+}
+
+func authUsersHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+	var user UserJSON
+	json.NewDecoder(r.Body).Decode(&user)
+	authUser, err := authUser(db, user)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusUnauthorized)
+		return
+	}
+	res := SuccessResponseJSON{Message: "User authenticated", Data: authUser}
+	json.NewEncoder(w).Encode(res)
 }
 
 // Web Socket
@@ -77,16 +96,6 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	addClient(ws)
 	go reader(ws)
-	/*
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				broadcastMessage(Message{Type: "heartbeat", Data: "Hello, clients!"})
-			}
-		}*/
 }
 
 // Controllers

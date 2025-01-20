@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS locations (
 	CONSTRAINT unique_location_name_warehouse_id UNIQUE (name, warehouse_id)
 );
 
-CREATE TYPE material_type AS ENUM (
+CREATE TYPE MATERIAL_TYPE AS ENUM (
 	'ACT LABEL',
 	'BUBBLE',
 	'BURGO',
@@ -54,7 +54,7 @@ CREATE TYPE material_type AS ENUM (
 	'WEARABLE'
 );
 
-CREATE TYPE owner AS ENUM ('Tag', 'Customer');
+CREATE TYPE OWNER AS ENUM ('Tag', 'Customer');
 
 CREATE TABLE IF NOT EXISTS materials (
 	material_id SERIAL PRIMARY KEY,
@@ -102,4 +102,13 @@ CREATE TABLE IF NOT EXISTS incoming_materials (
 	is_active BOOLEAN NOT NULL,
 	type VARCHAR(100) NOT NULL,
 	owner OWNER NOT NULL
+);
+
+CREATE TYPE ROLE AS ENUM ('admin', 'warehouse', 'csr', 'production');
+
+CREATE TABLE IF NOT EXISTS users (
+	user_id SERIAL PRIMARY KEY,
+	username VARCHAR(100) NOT NULL,
+	password VARCHAR(100) NOT NULL,
+	role ROLE NOT NULL
 );
