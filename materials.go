@@ -639,24 +639,32 @@ func deleteIncomingMaterial(tx *sql.Tx, shippingId int) error {
 
 func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
 	var currMaterial MaterialDB
-	err := tx.QueryRow(`SELECT * FROM materials WHERE material_id = $1`, materialId).
-		Scan(
-			&currMaterial.MaterialID,
-			&currMaterial.StockID,
-			&currMaterial.LocationID,
-			&currMaterial.CustomerID,
-			&currMaterial.MaterialType,
-			&currMaterial.Description,
-			&currMaterial.Notes,
-			&currMaterial.Quantity,
-			&currMaterial.MinQty,
-			&currMaterial.MaxQty,
-			&currMaterial.UpdatedAt,
-			&currMaterial.IsActive,
-			&currMaterial.Owner,
-			&currMaterial.IsPrimary,
-			&currMaterial.SerialNumberRange,
-		)
+	err := tx.QueryRow(`SELECT
+							material_id, stock_id, location_id,
+							customer_id, material_type, description, notes,
+							quantity, updated_at,
+							is_active, min_required_quantity, max_required_quantity,
+							owner, is_primary, COALESCE(serial_number_range, '')
+						FROM materials
+						WHERE material_id = $1`,
+		materialId,
+	).Scan(
+		&currMaterial.MaterialID,
+		&currMaterial.StockID,
+		&currMaterial.LocationID,
+		&currMaterial.CustomerID,
+		&currMaterial.MaterialType,
+		&currMaterial.Description,
+		&currMaterial.Notes,
+		&currMaterial.Quantity,
+		&currMaterial.UpdatedAt,
+		&currMaterial.IsActive,
+		&currMaterial.MinQty,
+		&currMaterial.MaxQty,
+		&currMaterial.Owner,
+		&currMaterial.IsPrimary,
+		&currMaterial.SerialNumberRange,
+	)
 	if err != nil {
 		return MaterialDB{}, err
 	}
