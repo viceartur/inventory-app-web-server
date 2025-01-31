@@ -145,6 +145,7 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 			($4 = '' OR m.owner::TEXT = $4) AND
 			m.location_id IS NOT NULL
 		GROUP BY m.stock_id, m.description, m.material_type
+		ORDER BY m.material_type ASC, m.description ASC;
 `,
 		b.blcFilter.customerId, b.blcFilter.materialType, b.blcFilter.dateAsOf, b.blcFilter.owner,
 	)
