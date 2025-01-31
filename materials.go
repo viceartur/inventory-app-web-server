@@ -45,38 +45,41 @@ type IncomingMaterial struct {
 // Create Material
 // Move Material
 type MaterialJSON struct {
-	MaterialID string `json:"materialId"`
-	LocationID string `json:"locationId"`
-	Qty        string `json:"quantity"`
-	Notes      string `json:"notes"`
-	IsPrimary  bool   `json:"isPrimary"`
+	MaterialID        string `json:"materialId"`
+	LocationID        string `json:"locationId"`
+	Qty               string `json:"quantity"`
+	Notes             string `json:"notes"`
+	IsPrimary         bool   `json:"isPrimary"`
+	SerialNubmerRange string `json:"serialNumberRange"`
 }
 
 // Remove Material
 type MaterialToRemoveJSON struct {
-	MaterialID string `json:"materialId"`
-	Qty        string `json:"quantity"`
-	JobTicket  string `json:"jobTicket"`
+	MaterialID        string `json:"materialId"`
+	Qty               string `json:"quantity"`
+	JobTicket         string `json:"jobTicket"`
+	SerialNumberRange string `json:"serialNumberRange"`
 }
 
 type MaterialDB struct {
-	MaterialID    int       `field:"material_id"`
-	WarehouseName string    `field:"warehouse_name"`
-	StockID       string    `field:"stock_id"`
-	CustomerID    int       `field:"customer_id"`
-	CustomerName  string    `field:"customer_name"`
-	LocationID    int       `field:"location_id"`
-	LocationName  string    `field:"location_name"`
-	MaterialType  string    `field:"material_type"`
-	Description   string    `field:"description"`
-	Notes         string    `field:"notes"`
-	Quantity      int       `field:"quantity"`
-	UpdatedAt     time.Time `field:"updated_at"`
-	IsActive      bool      `field:"is_active"`
-	MinQty        int       `field:"min_required_quantity"`
-	MaxQty        int       `field:"max_required_quantity"`
-	Owner         string    `field:"onwer"`
-	IsPrimary     bool      `field:"is_primary"`
+	MaterialID        int       `field:"material_id"`
+	WarehouseName     string    `field:"warehouse_name"`
+	StockID           string    `field:"stock_id"`
+	CustomerID        int       `field:"customer_id"`
+	CustomerName      string    `field:"customer_name"`
+	LocationID        int       `field:"location_id"`
+	LocationName      string    `field:"location_name"`
+	MaterialType      string    `field:"material_type"`
+	Description       string    `field:"description"`
+	Notes             string    `field:"notes"`
+	Quantity          int       `field:"quantity"`
+	UpdatedAt         time.Time `field:"updated_at"`
+	IsActive          bool      `field:"is_active"`
+	MinQty            int       `field:"min_required_quantity"`
+	MaxQty            int       `field:"max_required_quantity"`
+	Owner             string    `field:"onwer"`
+	IsPrimary         bool      `field:"is_primary"`
+	SerialNumberRange string    `field:"serial_number_range"`
 }
 
 type MaterialFilter struct {
@@ -95,10 +98,11 @@ type Price struct {
 }
 
 type PriceToRemove struct {
-	materialId int
-	qty        int
-	notes      string
-	jobTicket  string
+	materialId        int
+	qty               int
+	notes             string
+	jobTicket         string
+	serialNumberRange string
 }
 
 type PriceDB struct {
@@ -109,11 +113,12 @@ type PriceDB struct {
 }
 
 type TransactionInfo struct {
-	priceId   int       `field:"price_id"`
-	qty       int       `field:"quantity_change"`
-	notes     string    `field:"notes"`
-	jobTicket string    `field:"job_ticket"`
-	updatedAt time.Time `field:"updated_at"`
+	priceId           int       `field:"price_id"`
+	qty               int       `field:"quantity_change"`
+	notes             string    `field:"notes"`
+	jobTicket         string    `field:"job_ticket"`
+	updatedAt         time.Time `field:"updated_at"`
+	serialNumberRange string    `field:"serial_number_range"`
 }
 
 func fetchMaterialTypes(db *sql.DB) ([]string, error) {
@@ -208,7 +213,8 @@ func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 		stock_id, quantity, min_required_quantity, max_required_quantity,
 		m.description, COALESCE(notes,'None') as "notes",
 		is_active, material_type, owner,
-		COALESCE(is_primary,false) as "is_primary"
+		COALESCE(is_primary, false),
+		COALESCE(serial_number_range, '')
 		FROM materials m
 		LEFT JOIN customers c ON c.customer_id = m.customer_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
@@ -253,6 +259,7 @@ func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 			&material.MaterialType,
 			&material.Owner,
 			&material.IsPrimary,
+			&material.SerialNumberRange,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
 		}
@@ -330,9 +337,12 @@ func upsertPrice(tx *sql.Tx, priceInfo Price) (int, error) {
 
 func addTranscation(trx *TransactionInfo, tx *sql.Tx) error {
 	rows, err := tx.Query(`
-			INSERT INTO transactions_log (price_id, quantity_change, notes, job_ticket, updated_at)
-			VALUES($1, $2, $3, $4, $5);
-		`, trx.priceId, trx.qty, trx.notes, trx.jobTicket, trx.updatedAt)
+			INSERT INTO transactions_log (
+					price_id, quantity_change, notes, job_ticket, updated_at,
+					serial_number_range
+				)
+			VALUES($1, $2, $3, $4, $5, $6);
+		`, trx.priceId, trx.qty, trx.notes, trx.jobTicket, trx.updatedAt, trx.serialNumberRange)
 	if err != nil {
 		return err
 	}
@@ -368,11 +378,12 @@ func removePricesFIFO(tx *sql.Tx, priceToRemove PriceToRemove) ([]Price, error) 
 			}
 
 			err = addTranscation(&TransactionInfo{
-				priceId:   priceId,
-				qty:       -qtyToRemove,
-				notes:     notes,
-				jobTicket: jobTicket,
-				updatedAt: time.Now(),
+				priceId:           priceId,
+				qty:               -qtyToRemove,
+				notes:             notes,
+				jobTicket:         jobTicket,
+				updatedAt:         time.Now(),
+				serialNumberRange: priceToRemove.serialNumberRange,
 			}, tx)
 			if err != nil {
 				return nil, err
@@ -394,11 +405,12 @@ func removePricesFIFO(tx *sql.Tx, priceToRemove PriceToRemove) ([]Price, error) 
 			}
 
 			err = addTranscation(&TransactionInfo{
-				priceId:   priceId,
-				qty:       -qtyToRemove,
-				notes:     notes,
-				jobTicket: jobTicket,
-				updatedAt: time.Now(),
+				priceId:           priceId,
+				qty:               -qtyToRemove,
+				notes:             notes,
+				jobTicket:         jobTicket,
+				updatedAt:         time.Now(),
+				serialNumberRange: priceToRemove.serialNumberRange,
 			}, tx)
 			if err != nil {
 				return nil, err
@@ -483,7 +495,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 		// If there is no a Material in the chosen Location:
 		// 1. Check for a NULL location and if it exists then assign the new location and qty
 		rows, err := tx.Query(`
-			SELECT material_id as material_id FROM materials
+			SELECT material_id FROM materials
 			WHERE location_id is NULL
 				AND stock_id = $1
 				AND owner = $2;
@@ -532,9 +544,10 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 							max_required_quantity,
 							is_active,
 							owner,
-							is_primary
+							is_primary,
+							serial_number_range
 						)
-						VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING material_id;`,
+						VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING material_id;`,
 				incomingMaterial.StockID,
 				material.LocationID,
 				incomingMaterial.CustomerID,
@@ -548,6 +561,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				incomingMaterial.IsActive,
 				incomingMaterial.Owner,
 				material.IsPrimary,
+				material.SerialNubmerRange,
 			).Scan(&materialId)
 			if err != nil {
 				tx.Rollback()
@@ -583,10 +597,11 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 
 	// Add a Transaction
 	trxInfo := &TransactionInfo{
-		priceId:   priceId,
-		qty:       qty,
-		notes:     material.Notes,
-		updatedAt: time.Now(),
+		priceId:           priceId,
+		qty:               qty,
+		notes:             material.Notes,
+		updatedAt:         time.Now(),
+		serialNumberRange: material.SerialNubmerRange,
 	}
 	err = addTranscation(trxInfo, tx)
 	if err != nil {
@@ -640,6 +655,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
 			&currMaterial.IsActive,
 			&currMaterial.Owner,
 			&currMaterial.IsPrimary,
+			&currMaterial.SerialNumberRange,
 		)
 	if err != nil {
 		return MaterialDB{}, err
@@ -689,7 +705,8 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			WHERE material_id = $3 AND location_id = $4
 			RETURNING material_id, stock_id, location_id, customer_id, material_type,
 					description, notes, quantity, updated_at, is_active,
-					min_required_quantity, max_required_quantity, owner, is_primary;
+					min_required_quantity, max_required_quantity, owner,
+					is_primary, serial_number_range;
 			`, quantity, currNotes, currMaterialId, currentLocationId,
 		).Scan(
 			&currMaterial.MaterialID,
@@ -706,6 +723,7 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			&currMaterial.MaxQty,
 			&currMaterial.Owner,
 			&currMaterial.IsPrimary,
+			&currMaterial.SerialNumberRange,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -771,15 +789,20 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 	if newMaterialId == 0 {
 		err = db.QueryRow(`
 				INSERT INTO materials
-					(stock_id, location_id,
-					customer_id, material_type, description, notes, quantity, updated_at,
-					is_active, min_required_quantity, max_required_quantity, owner, is_primary)
-					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+					(
+						stock_id, location_id,
+						customer_id, material_type, description, notes,
+						quantity, updated_at,
+						is_active, min_required_quantity, max_required_quantity,
+						owner, is_primary, serial_number_range
+					)
+					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 					RETURNING material_id;`,
 			stockId, newLocationId,
 			currMaterial.CustomerID, currMaterial.MaterialType, currMaterial.Description,
 			currNotes, quantity, time.Now(), currMaterial.IsActive,
-			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner, currMaterial.IsPrimary).
+			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner,
+			currMaterial.IsPrimary, currMaterial.SerialNumberRange).
 			Scan(&newMaterialId)
 		if err != nil {
 			return err
@@ -800,11 +823,12 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 		}
 
 		err = addTranscation(&TransactionInfo{
-			priceId:   priceId,
-			qty:       qty,
-			notes:     "Moved FROM a Location",
-			jobTicket: "Auto-Ticket: " + time.Now().Local().String(),
-			updatedAt: time.Now(),
+			priceId:           priceId,
+			qty:               qty,
+			notes:             "Moved FROM a Location",
+			jobTicket:         "Auto-Ticket: " + time.Now().Local().String(),
+			updatedAt:         time.Now(),
+			serialNumberRange: material.SerialNubmerRange,
 		}, tx)
 		if err != nil {
 			tx.Rollback()
@@ -863,10 +887,11 @@ func removeMaterial(ctx context.Context, db *sql.DB, material MaterialToRemoveJS
 	}
 
 	priceToRemove := PriceToRemove{
-		materialId: materialId,
-		qty:        quantity,
-		notes:      "Removed FROM a Location",
-		jobTicket:  jobTicket,
+		materialId:        materialId,
+		qty:               quantity,
+		notes:             "Removed FROM a Location",
+		jobTicket:         jobTicket,
+		serialNumberRange: material.SerialNumberRange,
 	}
 	_, err = removePricesFIFO(tx, priceToRemove)
 	if err != nil {

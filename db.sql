@@ -51,7 +51,8 @@ CREATE TYPE MATERIAL_TYPE AS ENUM (
 	'RIBBON',
 	'SHIPPING',
 	'STICKER',
-	'WEARABLE'
+	'WEARABLE',
+	'CHIPS'
 );
 
 CREATE TYPE OWNER AS ENUM ('Tag', 'Customer');
@@ -70,7 +71,8 @@ CREATE TABLE IF NOT EXISTS materials (
 	updated_at DATE,
 	is_active BOOLEAN NOT NULL,
 	owner OWNER NOT NULL,
-	is_primary BOOLEAN NOT NULL
+	is_primary BOOLEAN NOT NULL,
+	serial_number_range VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS prices (
@@ -87,7 +89,8 @@ CREATE TABLE IF NOT EXISTS transactions_log (
 	quantity_change INT NOT NULL,
 	notes TEXT,
 	job_ticket VARCHAR(100),
-	updated_at DATE
+	updated_at DATE,
+	serial_number_range VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS incoming_materials (
