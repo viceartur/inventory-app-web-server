@@ -220,7 +220,6 @@ func getMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 		WHERE
-			m.location_id IS NOT NULL AND
 			($1 = 0 OR m.material_id = $1) AND
 			($2 = '' OR m.stock_id ILIKE '%' || $2 || '%') AND
 			($3 = '' OR c.name ILIKE '%' || $3 || '%') AND
