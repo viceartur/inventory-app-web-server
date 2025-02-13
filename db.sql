@@ -115,3 +115,16 @@ CREATE TABLE IF NOT EXISTS users (
 	password VARCHAR(100) NOT NULL,
 	role ROLE NOT NULL
 );
+
+CREATE TYPE MATERIAL_STATUS AS ENUM ('pending', 'sent', 'declined');
+
+CREATE TABLE IF NOT EXISTS requested_materials (
+	request_id SERIAL PRIMARY KEY,
+	user_id INT REFERENCES users (user_id),
+	stock_id VARCHAR(100) NOT NULL,
+	description TEXT NOT NULL,
+	quantity INT NOT NULL,
+	status MATERIAL_STATUS NOT NULL,
+	notes TEXT NOT NULL,
+	updated_at DATE
+);
