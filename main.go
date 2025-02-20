@@ -47,6 +47,7 @@ func main() {
 	router.HandleFunc("/materials/remove-from-location", removeMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/requested_materials", requestMaterialsHandler).Methods("POST")
 	router.HandleFunc("/requested_materials", getRequestedMaterialsHandler).Methods("GET")
+	router.HandleFunc("/requested_materials", updateRequestedMaterialHandler).Methods("PATCH")
 
 	router.HandleFunc("/incoming_materials", sendMaterialHandler).Methods("POST")
 	router.HandleFunc("/incoming_materials", getIncomingMaterialsHandler).Methods("GET")
@@ -298,7 +299,10 @@ func getRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
 
-	materials, err := getRequestedMaterials(db)
+	status := r.URL.Query().Get("status")
+	requestId := r.URL.Query().Get("requestId")
+	id, _ := strconv.Atoi(requestId)
+	materials, err := getRequestedMaterials(db, MaterialFilter{status: status, requestId: id})
 
 	if err != nil {
 		errRes := ErrorResponseJSON{Message: err.Error()}
@@ -307,6 +311,25 @@ func getRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := SuccessResponseJSON{Message: "Requested Materials List", Data: materials}
+	json.NewEncoder(w).Encode(res)
+}
+
+func updateRequestedMaterialHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+
+	var material MaterialJSON
+	json.NewDecoder(r.Body).Decode(&material)
+	log.Println(material)
+	err := updateRequestedMaterial(db, material)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Requested Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
 
