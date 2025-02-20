@@ -52,6 +52,7 @@ type MaterialJSON struct {
 	JobTicket         string `json:"jobTicket"`
 	StockID           string `json:"stockId"`
 	Description       string `json:"description"`
+	Status            string `json:"status"`
 }
 
 type RequestedMaterialsJSON struct {
@@ -81,6 +82,8 @@ type MaterialDB struct {
 	RequestID         int       `field:"request_id"`
 	UserName          string    `field:"username"`
 	Status            string    `field:"status"`
+	QtyRequested      int       `field:"quantity_requested"`
+	QtyUsed           int       `field:"quantity_used"`
 }
 
 type MaterialFilter struct {
@@ -89,6 +92,8 @@ type MaterialFilter struct {
 	customerName string
 	description  string
 	locationName string
+	status       string
+	requestId    int
 }
 
 type Price struct {
@@ -940,7 +945,7 @@ func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 
 	query := `
 	INSERT INTO requested_materials
-		(stock_id, description, quantity, status, notes, updated_at, user_id) VALUES `
+		(stock_id, description, quantity_requested, quantity_used, status, notes, updated_at, user_id) VALUES `
 	args := []interface{}{}
 	placeholderCount := 1
 
@@ -954,15 +959,15 @@ func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 			query += ", "
 		}
 		query += fmt.Sprintf(
-			"($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
 			placeholderCount, placeholderCount+1,
 			placeholderCount+2, placeholderCount+3,
 			placeholderCount+4, placeholderCount+5,
-			placeholderCount+6,
+			placeholderCount+6, placeholderCount+7,
 		)
 
-		args = append(args, m.StockID, m.Description, m.Qty, "pending", "requested", time.Now(), userId)
-		placeholderCount += 7
+		args = append(args, m.StockID, m.Description, m.Qty, 0, "pending", "Requested", time.Now(), userId)
+		placeholderCount += 8
 	}
 
 	_, err = tx.Exec(query, args...)
@@ -973,19 +978,23 @@ func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 	return nil
 }
 
-func getRequestedMaterials(db *sql.DB) ([]MaterialDB, error) {
+func getRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB, error) {
 	rows, err := db.Query(`
 		SELECT
 			request_id,
 			COALESCE(u.username, '') AS "username",
 			stock_id,
 			description,
-			quantity,
+			quantity_requested,
+			quantity_used,
 			status,
 			notes,
 			updated_at
 		FROM requested_materials rm
-		LEFT JOIN users u ON u.user_id = rm.user_id;`,
+		LEFT JOIN users u ON u.user_id = rm.user_id
+		WHERE ($1 = '' OR rm.status::TEXT = $1) AND
+			  ($2 = 0 OR rm.request_id = $2);`,
+		filterOpts.status, filterOpts.requestId,
 	)
 	if err != nil {
 		return nil, err
@@ -995,12 +1004,14 @@ func getRequestedMaterials(db *sql.DB) ([]MaterialDB, error) {
 	var materials []MaterialDB
 	for rows.Next() {
 		var material MaterialDB
+
 		if err := rows.Scan(
 			&material.RequestID,
 			&material.UserName,
 			&material.StockID,
 			&material.Description,
-			&material.Quantity,
+			&material.QtyRequested,
+			&material.QtyUsed,
 			&material.Status,
 			&material.Notes,
 			&material.UpdatedAt,
@@ -1010,4 +1021,23 @@ func getRequestedMaterials(db *sql.DB) ([]MaterialDB, error) {
 		materials = append(materials, material)
 	}
 	return materials, nil
+}
+
+func updateRequestedMaterial(db *sql.DB, material MaterialJSON) error {
+	requestId, _ := strconv.Atoi(material.MaterialID)
+	quantity, _ := strconv.Atoi(material.Qty)
+
+	_, err := db.Exec(`
+		UPDATE requested_materials
+		SET quantity_used = quantity_used + $2,
+			status = $3,
+			notes = $4,
+			updated_at = $5
+		WHERE request_id = $1;
+	`, requestId, quantity, material.Status, material.Notes, time.Now())
+
+	if err != nil {
+		return err
+	}
+	return nil
 }
