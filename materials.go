@@ -84,6 +84,7 @@ type MaterialDB struct {
 	Status            string    `field:"status"`
 	QtyRequested      int       `field:"quantity_requested"`
 	QtyUsed           int       `field:"quantity_used"`
+	RequestedAt       time.Time `field:"requested_at"`
 }
 
 type MaterialFilter struct {
@@ -94,6 +95,7 @@ type MaterialFilter struct {
 	locationName string
 	status       string
 	requestId    int
+	requestedAt  string
 }
 
 type Price struct {
@@ -945,7 +947,7 @@ func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 
 	query := `
 	INSERT INTO requested_materials
-		(stock_id, description, quantity_requested, quantity_used, status, notes, updated_at, user_id) VALUES `
+		(stock_id, description, quantity_requested, quantity_used, status, notes, updated_at, requested_at, user_id) VALUES `
 	args := []interface{}{}
 	placeholderCount := 1
 
@@ -959,15 +961,16 @@ func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 			query += ", "
 		}
 		query += fmt.Sprintf(
-			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
 			placeholderCount, placeholderCount+1,
 			placeholderCount+2, placeholderCount+3,
 			placeholderCount+4, placeholderCount+5,
 			placeholderCount+6, placeholderCount+7,
+			placeholderCount+8,
 		)
 
-		args = append(args, m.StockID, m.Description, m.Qty, 0, "pending", "Requested", time.Now(), userId)
-		placeholderCount += 8
+		args = append(args, m.StockID, m.Description, m.Qty, 0, "pending", "Requested", time.Now(), time.Now(), userId)
+		placeholderCount += 9
 	}
 
 	_, err = tx.Exec(query, args...)
@@ -989,12 +992,20 @@ func getRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB,
 			quantity_used,
 			status,
 			notes,
-			updated_at
+			updated_at,
+			requested_at
 		FROM requested_materials rm
 		LEFT JOIN users u ON u.user_id = rm.user_id
-		WHERE ($1 = '' OR rm.status::TEXT = $1) AND
-			  ($2 = 0 OR rm.request_id = $2);`,
-		filterOpts.status, filterOpts.requestId,
+		WHERE ($1 = 0 OR rm.request_id = $1) AND
+		      ($2 = '' OR rm.stock_id ILIKE '%' || $2 || '%') AND
+			  ($3 = '' OR rm.status::TEXT = $3) AND
+			  ($4 = '' OR rm.requested_at::TEXT <= $4)
+		ORDER BY rm.requested_at;
+			  `,
+		filterOpts.requestId,
+		filterOpts.stockId,
+		filterOpts.status,
+		filterOpts.requestedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -1015,6 +1026,7 @@ func getRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB,
 			&material.Status,
 			&material.Notes,
 			&material.UpdatedAt,
+			&material.RequestedAt,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
 		}

@@ -299,10 +299,18 @@ func getRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
 
-	status := r.URL.Query().Get("status")
 	requestId := r.URL.Query().Get("requestId")
 	id, _ := strconv.Atoi(requestId)
-	materials, err := getRequestedMaterials(db, MaterialFilter{status: status, requestId: id})
+	stockId := r.URL.Query().Get("stockId")
+	status := r.URL.Query().Get("status")
+	requestedAt := r.URL.Query().Get("requestedAt")
+	filterOpts := MaterialFilter{
+		requestId:   id,
+		stockId:     stockId,
+		status:      status,
+		requestedAt: requestedAt,
+	}
+	materials, err := getRequestedMaterials(db, filterOpts)
 
 	if err != nil {
 		errRes := ErrorResponseJSON{Message: err.Error()}

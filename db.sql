@@ -127,5 +127,6 @@ CREATE TABLE IF NOT EXISTS requested_materials (
 	quantity_used INT NOT NULL,
 	status REQUEST_STATUS NOT NULL,
 	notes TEXT NOT NULL,
-	updated_at DATE
+	updated_at DATE,
+	requested_at DATE
 );
