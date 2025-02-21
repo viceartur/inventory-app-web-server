@@ -6,12 +6,14 @@ import (
 )
 
 type UserJSON struct {
+	UserID   int    `json:"userId"`
 	Username string `json:"username"`
 	Password string `json:"password,omitempty"`
 	Role     string `json:"role"`
 }
 
 type UserDB struct {
+	UserID   int    `field:"user_id"`
 	Username string `field:"username"`
 	Password string `field:"password"`
 	Role     string `field:"role"`
@@ -38,7 +40,11 @@ func authUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 		return UserJSON{}, errors.New("Wrong password")
 	}
 
-	authUser := UserJSON{Username: actualUser.Username, Role: actualUser.Role}
+	authUser := UserJSON{
+		UserID:   actualUser.UserID,
+		Username: actualUser.Username,
+		Role:     actualUser.Role,
+	}
 
 	return authUser, nil
 }

@@ -29,6 +29,9 @@ func main() {
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
 	headers := handlers.AllowedHeaders([]string{"Content-Type", "Authorization"})
 
+	// Auth
+	router.HandleFunc("/users/auth", authUsersHandler).Methods("POST")
+
 	// Web Socket
 	router.HandleFunc("/ws", wsEndpoint)
 
@@ -42,6 +45,9 @@ func main() {
 	router.HandleFunc("/material_types", getMaterialTypesHandler).Methods("GET")
 	router.HandleFunc("/materials/move-to-location", moveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/remove-from-location", removeMaterialHandler).Methods("PATCH")
+	router.HandleFunc("/requested_materials", requestMaterialsHandler).Methods("POST")
+	router.HandleFunc("/requested_materials", getRequestedMaterialsHandler).Methods("GET")
+	router.HandleFunc("/requested_materials", updateRequestedMaterialHandler).Methods("PATCH")
 
 	router.HandleFunc("/incoming_materials", sendMaterialHandler).Methods("POST")
 	router.HandleFunc("/incoming_materials", getIncomingMaterialsHandler).Methods("GET")
@@ -56,8 +62,6 @@ func main() {
 
 	router.HandleFunc("/import_data", importData).Methods("POST")
 
-	router.HandleFunc("/users/auth", authUsersHandler).Methods("POST")
-
 	// Env loading
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -69,6 +73,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(origins, methods, headers)(router)))
 }
 
+// Auth
 func authUsersHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
@@ -255,7 +260,7 @@ func moveMaterialHandler(w http.ResponseWriter, r *http.Request) {
 func removeMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := connectToDB()
 	defer db.Close()
-	var material MaterialToRemoveJSON
+	var material MaterialJSON
 	json.NewDecoder(r.Body).Decode(&material)
 
 	ctx := context.TODO()
@@ -268,6 +273,71 @@ func removeMaterialHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := SuccessResponseJSON{Message: "Material Quantity Removed", Data: material}
+	json.NewEncoder(w).Encode(res)
+}
+
+func requestMaterialsHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+	var materials RequestedMaterialsJSON
+	json.NewDecoder(r.Body).Decode(&materials)
+
+	ctx := context.TODO()
+	err := requestMaterials(ctx, db, materials)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Materials requested"}
+	json.NewEncoder(w).Encode(res)
+}
+
+func getRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+
+	requestId := r.URL.Query().Get("requestId")
+	id, _ := strconv.Atoi(requestId)
+	stockId := r.URL.Query().Get("stockId")
+	status := r.URL.Query().Get("status")
+	requestedAt := r.URL.Query().Get("requestedAt")
+	filterOpts := MaterialFilter{
+		requestId:   id,
+		stockId:     stockId,
+		status:      status,
+		requestedAt: requestedAt,
+	}
+	materials, err := getRequestedMaterials(db, filterOpts)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Requested Materials List", Data: materials}
+	json.NewEncoder(w).Encode(res)
+}
+
+func updateRequestedMaterialHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+
+	var material MaterialJSON
+	json.NewDecoder(r.Body).Decode(&material)
+	log.Println(material)
+	err := updateRequestedMaterial(db, material)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Requested Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
 

@@ -42,23 +42,22 @@ type IncomingMaterial struct {
 	qty        int
 }
 
-// Create Material
-// Move Material
 type MaterialJSON struct {
 	MaterialID        string `json:"materialId"`
 	LocationID        string `json:"locationId"`
 	Qty               string `json:"quantity"`
 	Notes             string `json:"notes"`
 	IsPrimary         bool   `json:"isPrimary"`
-	SerialNubmerRange string `json:"serialNumberRange"`
+	SerialNumberRange string `json:"serialNumberRange"`
+	JobTicket         string `json:"jobTicket"`
+	StockID           string `json:"stockId"`
+	Description       string `json:"description"`
+	Status            string `json:"status"`
 }
 
-// Remove Material
-type MaterialToRemoveJSON struct {
-	MaterialID        string `json:"materialId"`
-	Qty               string `json:"quantity"`
-	JobTicket         string `json:"jobTicket"`
-	SerialNumberRange string `json:"serialNumberRange"`
+type RequestedMaterialsJSON struct {
+	Materials []MaterialJSON `json:"materials"`
+	UserID    int            `json:"userId"`
 }
 
 type MaterialDB struct {
@@ -80,6 +79,12 @@ type MaterialDB struct {
 	Owner             string    `field:"onwer"`
 	IsPrimary         bool      `field:"is_primary"`
 	SerialNumberRange string    `field:"serial_number_range"`
+	RequestID         int       `field:"request_id"`
+	UserName          string    `field:"username"`
+	Status            string    `field:"status"`
+	QtyRequested      int       `field:"quantity_requested"`
+	QtyUsed           int       `field:"quantity_used"`
+	RequestedAt       time.Time `field:"requested_at"`
 }
 
 type MaterialFilter struct {
@@ -88,6 +93,9 @@ type MaterialFilter struct {
 	customerName string
 	description  string
 	locationName string
+	status       string
+	requestId    int
+	requestedAt  string
 }
 
 type Price struct {
@@ -560,7 +568,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				incomingMaterial.IsActive,
 				incomingMaterial.Owner,
 				material.IsPrimary,
-				material.SerialNubmerRange,
+				material.SerialNumberRange,
 			).Scan(&materialId)
 			if err != nil {
 				tx.Rollback()
@@ -600,7 +608,7 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 		qty:               qty,
 		notes:             material.Notes,
 		updatedAt:         time.Now(),
-		serialNumberRange: material.SerialNubmerRange,
+		serialNumberRange: material.SerialNumberRange,
 	}
 	err = addTranscation(trxInfo, tx)
 	if err != nil {
@@ -835,7 +843,7 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			notes:             "Moved FROM a Location",
 			jobTicket:         "Auto-Ticket: " + time.Now().Local().String(),
 			updatedAt:         time.Now(),
-			serialNumberRange: material.SerialNubmerRange,
+			serialNumberRange: material.SerialNumberRange,
 		}, tx)
 		if err != nil {
 			tx.Rollback()
@@ -848,7 +856,7 @@ func moveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 
 // The method removes a specific Material quantity, its Prices, adds a Transaction Log.
 // Method's Context: Material Removing. The Transaction Rollback is executed once an error occurs.
-func removeMaterial(ctx context.Context, db *sql.DB, material MaterialToRemoveJSON) error {
+func removeMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -916,6 +924,129 @@ func updateMaterial(db *sql.DB, material MaterialJSON) error {
 		SET is_primary = $2
 		WHERE material_id = $1
 	`, materialId, material.IsPrimary)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func requestMaterials(ctx context.Context, db *sql.DB, materials RequestedMaterialsJSON) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Commit()
+
+	var userId sql.NullInt64
+	if materials.UserID == 0 {
+		userId = sql.NullInt64{Valid: false}
+	} else {
+		userId = sql.NullInt64{Int64: int64(materials.UserID), Valid: true}
+	}
+
+	query := `
+	INSERT INTO requested_materials
+		(stock_id, description, quantity_requested, quantity_used, status, notes, updated_at, requested_at, user_id) VALUES `
+	args := []interface{}{}
+	placeholderCount := 1
+
+	for i, m := range materials.Materials {
+		qty, err := strconv.Atoi(m.Qty)
+		if qty == 0 || err != nil {
+			continue
+		}
+
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf(
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			placeholderCount, placeholderCount+1,
+			placeholderCount+2, placeholderCount+3,
+			placeholderCount+4, placeholderCount+5,
+			placeholderCount+6, placeholderCount+7,
+			placeholderCount+8,
+		)
+
+		args = append(args, m.StockID, m.Description, m.Qty, 0, "pending", "Requested", time.Now(), time.Now(), userId)
+		placeholderCount += 9
+	}
+
+	_, err = tx.Exec(query, args...)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func getRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB, error) {
+	rows, err := db.Query(`
+		SELECT
+			request_id,
+			COALESCE(u.username, '') AS "username",
+			stock_id,
+			description,
+			quantity_requested,
+			quantity_used,
+			status,
+			notes,
+			updated_at,
+			requested_at
+		FROM requested_materials rm
+		LEFT JOIN users u ON u.user_id = rm.user_id
+		WHERE ($1 = 0 OR rm.request_id = $1) AND
+		      ($2 = '' OR rm.stock_id ILIKE '%' || $2 || '%') AND
+			  ($3 = '' OR rm.status::TEXT = $3) AND
+			  ($4 = '' OR rm.requested_at::TEXT <= $4)
+		ORDER BY rm.requested_at;
+			  `,
+		filterOpts.requestId,
+		filterOpts.stockId,
+		filterOpts.status,
+		filterOpts.requestedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var materials []MaterialDB
+	for rows.Next() {
+		var material MaterialDB
+
+		if err := rows.Scan(
+			&material.RequestID,
+			&material.UserName,
+			&material.StockID,
+			&material.Description,
+			&material.QtyRequested,
+			&material.QtyUsed,
+			&material.Status,
+			&material.Notes,
+			&material.UpdatedAt,
+			&material.RequestedAt,
+		); err != nil {
+			return nil, fmt.Errorf("Error scanning row: %w", err)
+		}
+		materials = append(materials, material)
+	}
+	return materials, nil
+}
+
+func updateRequestedMaterial(db *sql.DB, material MaterialJSON) error {
+	requestId, _ := strconv.Atoi(material.MaterialID)
+	quantity, _ := strconv.Atoi(material.Qty)
+
+	_, err := db.Exec(`
+		UPDATE requested_materials
+		SET quantity_used = quantity_used + $2,
+			status = $3,
+			notes = $4,
+			updated_at = $5
+		WHERE request_id = $1;
+	`, requestId, quantity, material.Status, material.Notes, time.Now())
+
 	if err != nil {
 		return err
 	}
