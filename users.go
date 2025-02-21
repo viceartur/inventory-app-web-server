@@ -25,8 +25,9 @@ func authUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 
 	var actualUser UserDB
 	db.QueryRow(`
-		SELECT username, password, role FROM users WHERE username = $1
+		SELECT user_id, username, password, role FROM users WHERE username = $1
 		`, username).Scan(
+		&actualUser.UserID,
 		&actualUser.Username,
 		&actualUser.Password,
 		&actualUser.Role,

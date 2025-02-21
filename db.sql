@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS incoming_materials (
 	description TEXT NOT NULL,
 	is_active BOOLEAN NOT NULL,
 	type VARCHAR(100) NOT NULL,
-	owner OWNER NOT NULL
+	owner OWNER NOT NULL,
+	user_id INT REFERENCES users (user_id) NOT NULL
 );
 
 CREATE TYPE ROLE AS ENUM ('admin', 'warehouse', 'csr', 'production');

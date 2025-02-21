@@ -10,6 +10,7 @@ import (
 )
 
 type IncomingMaterialJSON struct {
+	ShippingId   string `json:"shippingId"`
 	CustomerID   string `json:"customerId"`
 	StockID      string `json:"stockId"`
 	MaterialType string `json:"type"`
@@ -20,6 +21,7 @@ type IncomingMaterialJSON struct {
 	Description  string `json:"description"`
 	Owner        string `json:"owner"`
 	IsActive     bool   `json:"isActive"`
+	UserID       string `json:"userId"`
 }
 
 type IncomingMaterialDB struct {
@@ -35,6 +37,8 @@ type IncomingMaterialDB struct {
 	IsActive     bool    `field:"is_active"`
 	MaterialType string  `field:"material_type"`
 	Owner        string  `field:"owner"`
+	UserID       int     `field:"user_id"`
+	UserName     string  `field:"username"`
 }
 
 type IncomingMaterial struct {
@@ -160,12 +164,13 @@ func sendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 				INSERT INTO incoming_materials
 					(customer_id, stock_id, cost, quantity,
 					max_required_quantity, min_required_quantity,
-					description, is_active, type, owner)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+					description, is_active, type, owner, user_id)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		material.CustomerID, material.StockID, material.Cost,
 		qty, maxQty, minQty,
 		material.Description, material.IsActive, material.MaterialType,
 		material.Owner,
+		material.UserID,
 	)
 
 	if err != nil {
@@ -177,9 +182,11 @@ func sendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 func getIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, error) {
 	rows, err := db.Query(`
 		SELECT shipping_id, c.name, c.customer_id, stock_id, cost, quantity,
-		min_required_quantity, max_required_quantity, description, is_active, type, owner
+		min_required_quantity, max_required_quantity, description, is_active, type, owner,
+		u.user_id, u.username
 		FROM incoming_materials im
 		LEFT JOIN customers c ON c.customer_id = im.customer_id
+		LEFT JOIN users u ON u.user_id = im.user_id
 		WHERE $1 = 0 OR im.shipping_id = $1;
 		`, materialId)
 	if err != nil {
@@ -203,6 +210,8 @@ func getIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, err
 			&material.IsActive,
 			&material.MaterialType,
 			&material.Owner,
+			&material.UserID,
+			&material.UserName,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
 		}
@@ -595,7 +604,12 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 		}
 	} else {
 		material := &IncomingMaterial{shippingId: shippingId, qty: -qty}
-		err = updateIncomingMaterial(tx, material)
+		_, err := tx.Exec(`
+					UPDATE incoming_materials
+					SET quantity = (quantity + $2)
+					WHERE shipping_id = $1
+					`, material.shippingId, material.qty,
+		)
 		if err != nil {
 			tx.Rollback()
 			return 0, err
@@ -619,14 +633,34 @@ func createMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	return materialId, nil
 }
 
-// Update an Incoming Material with parameters passed
-func updateIncomingMaterial(tx *sql.Tx, material *IncomingMaterial) error {
-	_, err := tx.Exec(`
-					UPDATE incoming_materials
-					SET quantity = (quantity + $2)
-					WHERE shipping_id = $1
-					`, material.shippingId, material.qty,
+func updateIncomingMaterial(db *sql.DB, material IncomingMaterialJSON) error {
+	_, err := db.Exec(`
+		UPDATE incoming_materials
+		SET customer_id = $2,
+			stock_id = $3,
+			cost = $4,
+			quantity = $5,
+			max_required_quantity = $6,
+			min_required_quantity = $7,
+			description = $8,
+			is_active = $9,
+			type = $10,
+			owner = $11
+		WHERE shipping_id = $1;
+	`,
+		material.ShippingId,
+		material.CustomerID,
+		material.StockID,
+		material.Cost,
+		material.Qty,
+		material.MaxQty,
+		material.MinQty,
+		material.Description,
+		material.IsActive,
+		material.MaterialType,
+		material.Owner,
 	)
+
 	if err != nil {
 		return err
 	}

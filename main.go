@@ -51,6 +51,7 @@ func main() {
 
 	router.HandleFunc("/incoming_materials", sendMaterialHandler).Methods("POST")
 	router.HandleFunc("/incoming_materials", getIncomingMaterialsHandler).Methods("GET")
+	router.HandleFunc("/incoming_materials", updateIncomingMaterialHandler).Methods("PUT")
 
 	router.HandleFunc("/warehouses", createWarehouseHandler).Methods("POST")
 	router.HandleFunc("/warehouses", getWarehouseHandler).Methods("GET")
@@ -170,6 +171,24 @@ func getIncomingMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(materials)
+}
+
+func updateIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := connectToDB()
+	defer db.Close()
+
+	var material IncomingMaterialJSON
+	json.NewDecoder(r.Body).Decode(&material)
+	err := updateIncomingMaterial(db, material)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Requested Material Updated"}
+	json.NewEncoder(w).Encode(res)
 }
 
 func createMaterialHandler(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +347,6 @@ func updateRequestedMaterialHandler(w http.ResponseWriter, r *http.Request) {
 
 	var material MaterialJSON
 	json.NewDecoder(r.Body).Decode(&material)
-	log.Println(material)
 	err := updateRequestedMaterial(db, material)
 
 	if err != nil {
