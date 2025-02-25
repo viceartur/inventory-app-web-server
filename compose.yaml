@@ -6,8 +6,10 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+    restart: always
 
   backend:
     build:
       context: .
     network_mode: host
+    restart: always
