@@ -1,4 +1,4 @@
-package main
+package import_data
 
 import (
 	"database/sql"
@@ -52,7 +52,7 @@ type ImportResponse struct {
 	Not_Imported_Data    []ImportData
 }
 
-func importDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
+func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 	materialsCounter := 0
 	notImportedData := []ImportData{}
 	locations := []string{}

@@ -1,4 +1,4 @@
-package main
+package customers
 
 import (
 	"database/sql"
@@ -16,7 +16,7 @@ type CustomerDB struct {
 	Code string `field:"customer_code"`
 }
 
-func createCustomer(customer CustomerJSON, db *sql.DB) error {
+func CreateCustomer(customer CustomerJSON, db *sql.DB) error {
 	_, err := db.Exec("INSERT INTO customers (name, customer_code) VALUES ($1,$2)",
 		customer.Name, customer.Code)
 
@@ -26,7 +26,7 @@ func createCustomer(customer CustomerJSON, db *sql.DB) error {
 	return nil
 }
 
-func fetchCustomers(db *sql.DB) ([]CustomerDB, error) {
+func FetchCustomers(db *sql.DB) ([]CustomerDB, error) {
 	rows, err := db.Query("SELECT * FROM customers ORDER BY name ASC;")
 	if err != nil {
 		log.Println("Error fetchCustomers1: ", err)

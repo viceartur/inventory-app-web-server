@@ -1,4 +1,4 @@
-package main
+package warehouses
 
 import (
 	"database/sql"
@@ -15,7 +15,7 @@ type WarehouseDB struct {
 	WarehouseName string `field:"name"`
 }
 
-func fetchWarehouses(db *sql.DB) ([]WarehouseDB, error) {
+func FetchWarehouses(db *sql.DB) ([]WarehouseDB, error) {
 	rows, err := db.Query("SELECT * FROM warehouses;")
 	if err != nil {
 		log.Println("Error fetchWarehouses1: ", err)
@@ -40,8 +40,8 @@ func fetchWarehouses(db *sql.DB) ([]WarehouseDB, error) {
 	return warehouses, nil
 }
 
-func createWarehouse(warehouse WarehouseJSON, db *sql.DB) error {
-	warehouses, err := fetchWarehouses(db)
+func CreateWarehouse(warehouse WarehouseJSON, db *sql.DB) error {
+	warehouses, err := FetchWarehouses(db)
 
 	if err != nil {
 		return err

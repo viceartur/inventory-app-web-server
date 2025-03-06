@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -11,7 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func connectToDB() (*sql.DB, error) {
+func ConnectToDB() (*sql.DB, error) {
 	errEnv := godotenv.Load(".env")
 	if errEnv != nil {
 		log.Fatalf("Error loading .env file")

@@ -1,7 +1,9 @@
-package main
+package websocket
 
 import (
 	"encoding/json"
+	"inv_app/v2/database"
+	"inv_app/v2/services/materials"
 	"log"
 	"sync"
 
@@ -43,8 +45,8 @@ func reader(conn *websocket.Conn) {
 }
 
 func handleSendMaterial() {
-	db, _ := connectToDB()
-	materials, err := getIncomingMaterials(db, 0)
+	db, _ := database.ConnectToDB()
+	materials, err := materials.GetIncomingMaterials(db, 0)
 	if err != nil {
 		log.Println("WS error getting materials:", err)
 		return

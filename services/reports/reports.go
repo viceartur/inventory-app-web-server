@@ -1,4 +1,4 @@
-package main
+package reports
 
 import (
 	"database/sql"
@@ -22,26 +22,26 @@ type Transaction struct {
 }
 
 type SearchQuery struct {
-	customerId   int
-	owner        string
-	materialType string
-	dateFrom     string
-	dateTo       string
-	dateAsOf     string
+	CustomerId   int
+	Owner        string
+	MaterialType string
+	DateFrom     string
+	DateTo       string
+	DateAsOf     string
 }
 
 type Report struct {
-	db *sql.DB
+	DB *sql.DB
 }
 
 type TransactionReport struct {
 	Report
-	trxFilter SearchQuery
+	TrxFilter SearchQuery
 }
 
 type BalanceReport struct {
 	Report
-	blcFilter SearchQuery
+	BlcFilter SearchQuery
 }
 
 type TransactionRep struct {
@@ -64,8 +64,8 @@ type BalanceRep struct {
 
 var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 2}
 
-func (t TransactionReport) getReportList() ([]TransactionRep, error) {
-	rows, err := t.db.Query(`SELECT
+func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
+	rows, err := t.DB.Query(`SELECT
 								m.stock_id,
 								m.material_type,
 								tl.quantity_change as "quantity",
@@ -84,7 +84,7 @@ func (t TransactionReport) getReportList() ([]TransactionRep, error) {
 								($4 = '' OR tl.updated_at::TEXT <= $4) AND
 								($5 = '' OR m.owner::TEXT = $5)
 							 ORDER BY transaction_id;`,
-		t.trxFilter.customerId, t.trxFilter.materialType, t.trxFilter.dateFrom, t.trxFilter.dateTo, t.trxFilter.owner)
+		t.TrxFilter.CustomerId, t.TrxFilter.MaterialType, t.TrxFilter.DateFrom, t.TrxFilter.DateTo, t.TrxFilter.Owner)
 	if err != nil {
 		return []TransactionRep{}, err
 	}
@@ -128,8 +128,8 @@ func (t TransactionReport) getReportList() ([]TransactionRep, error) {
 	return trxList, nil
 }
 
-func (b BalanceReport) getReportList() ([]BalanceRep, error) {
-	rows, err := b.db.Query(`
+func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
+	rows, err := b.DB.Query(`
 		SELECT m.stock_id,
 			m.description,
 			m.material_type,
@@ -147,7 +147,7 @@ func (b BalanceReport) getReportList() ([]BalanceRep, error) {
 		GROUP BY m.stock_id, m.description, m.material_type
 		ORDER BY m.material_type ASC, m.description ASC;
 `,
-		b.blcFilter.customerId, b.blcFilter.materialType, b.blcFilter.dateAsOf, b.blcFilter.owner,
+		b.BlcFilter.CustomerId, b.BlcFilter.MaterialType, b.BlcFilter.DateAsOf, b.BlcFilter.Owner,
 	)
 	if err != nil {
 		return []BalanceRep{}, err

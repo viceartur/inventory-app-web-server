@@ -1,12 +1,12 @@
-package main
+package locations
 
 import (
 	"database/sql"
 )
 
 type LocationFilter struct {
-	stockId string
-	owner   string
+	StockId string
+	Owner   string
 }
 
 type LocationDB struct {
@@ -16,7 +16,7 @@ type LocationDB struct {
 	WarehouseName string `field:"warehouse_name"`
 }
 
-func fetchLocations(db *sql.DB) ([]LocationDB, error) {
+func FetchLocations(db *sql.DB) ([]LocationDB, error) {
 	rows, err := db.Query(`
 		SELECT l.location_id, l.name, w.warehouse_id, w.name as "warehouse_name"
 		FROM locations l
@@ -45,14 +45,14 @@ func fetchLocations(db *sql.DB) ([]LocationDB, error) {
 	return locations, nil
 }
 
-func fetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, error) {
+func FetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, error) {
 	rows, err := db.Query(`
 		SELECT l.location_id, l.name, l.warehouse_id FROM locations l
 		LEFT JOIN materials m
 		ON l.location_id = m.location_id
 		WHERE m.stock_id = $1 AND m.owner = $2 OR m.material_id IS NULL
 		ORDER BY l.name ASC;
-	`, opts.stockId, opts.owner)
+	`, opts.StockId, opts.Owner)
 	if err != nil {
 		return nil, err
 	}

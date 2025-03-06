@@ -1,4 +1,4 @@
-package main
+package users
 
 import (
 	"database/sql"
@@ -19,7 +19,7 @@ type UserDB struct {
 	Role     string `field:"role"`
 }
 
-func authUser(db *sql.DB, user UserJSON) (UserJSON, error) {
+func AuthUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 	username := user.Username
 	password := user.Password
 
