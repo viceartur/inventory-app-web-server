@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"inv_app/v2/database"
-	"inv_app/v2/services/users"
+	"inv_app/database"
+	"inv_app/services/users"
 	"net/http"
 )
 

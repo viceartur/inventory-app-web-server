@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	routeHandlers "inv_app/v2/handlers"
-	"inv_app/v2/services/websocket"
+	routeHandlers "inv_app/handlers"
+	"inv_app/services/websocket"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"

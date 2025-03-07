@@ -1,4 +1,4 @@
-module inv_app/v2
+module inv_app
 
 go 1.23.2
 

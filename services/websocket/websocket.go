@@ -2,8 +2,8 @@ package websocket
 
 import (
 	"encoding/json"
-	"inv_app/v2/database"
-	"inv_app/v2/services/materials"
+	"inv_app/database"
+	"inv_app/services/materials"
 	"log"
 	"sync"
 

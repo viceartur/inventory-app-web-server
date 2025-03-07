@@ -3,8 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"inv_app/v2/database"
-	"inv_app/v2/services/materials"
+	"inv_app/database"
+	"inv_app/services/materials"
 	"net/http"
 	"strconv"
 )
