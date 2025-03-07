@@ -47,13 +47,20 @@ func reader(conn *websocket.Conn) {
 func handleSendMaterial() {
 	db, _ := database.ConnectToDB()
 	materials, err := materials.GetIncomingMaterials(db, 0)
+	count := 0
+	for _, material := range materials {
+		if material.MaterialType != "CARDS" {
+			count++
+		}
+	}
+
 	if err != nil {
 		log.Println("WS error getting materials:", err)
 		return
 	}
 
 	// Broadcast the message to all clients
-	msg := Message{Type: "incomingMaterialsQty", Data: len(materials)}
+	msg := Message{Type: "incomingMaterialsQty", Data: count}
 	broadcastMessage(msg)
 }
 

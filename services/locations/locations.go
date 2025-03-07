@@ -47,9 +47,9 @@ func FetchLocations(db *sql.DB) ([]LocationDB, error) {
 
 func FetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, error) {
 	rows, err := db.Query(`
-		SELECT l.location_id, l.name, l.warehouse_id FROM locations l
-		LEFT JOIN materials m
-		ON l.location_id = m.location_id
+		SELECT l.location_id, l.name, l.warehouse_id, w.name as "warehouse_name" FROM locations l
+		LEFT JOIN materials m ON l.location_id = m.location_id
+		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id 
 		WHERE m.stock_id = $1 AND m.owner = $2 OR m.material_id IS NULL
 		ORDER BY l.name ASC;
 	`, opts.StockId, opts.Owner)
@@ -62,7 +62,7 @@ func FetchAvailableLocations(db *sql.DB, opts LocationFilter) ([]LocationDB, err
 
 	for rows.Next() {
 		var location LocationDB
-		if err := rows.Scan(&location.ID, &location.Name, &location.WarehouseID); err != nil {
+		if err := rows.Scan(&location.ID, &location.Name, &location.WarehouseID, &location.WarehouseName); err != nil {
 			return locations, err
 		}
 		locations = append(locations, location)
