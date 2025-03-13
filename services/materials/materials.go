@@ -272,9 +272,8 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 			SELECT description FROM materials
 			WHERE location_id IS NOT NULL
 				AND stock_id = $1
-				AND owner = $2
 			LIMIT 1;
-		`, incomingMaterial.StockID, incomingMaterial.Owner)
+		`, incomingMaterial.StockID)
 			if err != nil {
 				tx.Rollback()
 				return 0, err
