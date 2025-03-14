@@ -236,3 +236,20 @@ func UpdateRequestedMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	res := SuccessResponseJSON{Message: "Requested Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
+
+func GetMaterialDescriptionHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	stockId := r.URL.Query().Get("stockId")
+	description, err := materials.GetMaterialDescription(db, stockId)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Material Description Requested", Data: description}
+	json.NewEncoder(w).Encode(res)
+}

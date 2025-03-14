@@ -266,31 +266,6 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 			rows.Close()
 		} else {
 			// 2. If there is no a NULL Location, then add the material to the new location
-			// Check whether a description exists
-			var description string
-			rows, err := tx.Query(`
-			SELECT description FROM materials
-			WHERE location_id IS NOT NULL
-				AND stock_id = $1
-			LIMIT 1;
-		`, incomingMaterial.StockID)
-			if err != nil {
-				tx.Rollback()
-				return 0, err
-			}
-
-			for rows.Next() {
-				err := rows.Scan(&description)
-				if err != nil {
-					tx.Rollback()
-					return 0, err
-				}
-			}
-			// If there is no a description, then assign the incoming description
-			if description == "" {
-				description = incomingMaterial.Description
-			}
-
 			// Insert a new Material
 			err = tx.QueryRow(`
 						INSERT INTO materials
@@ -315,7 +290,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				material.LocationID,
 				incomingMaterial.CustomerID,
 				incomingMaterial.MaterialType,
-				description, // insert the existing description
+				incomingMaterial.Description,
 				material.Notes,
 				material.Qty,
 				time.Now(),
@@ -786,4 +761,20 @@ func UpdateRequestedMaterial(db *sql.DB, material MaterialJSON) error {
 		return err
 	}
 	return nil
+}
+
+func GetMaterialDescription(db *sql.DB, stockId string) (string, error) {
+	var description string
+	err := db.QueryRow(`
+		SELECT description
+		FROM materials
+		WHERE LOWER(stock_id) = LOWER($1)
+		LIMIT 1;
+	`,
+		stockId,
+	).Scan(&description)
+	if err != nil {
+		return "", err
+	}
+	return description, nil
 }

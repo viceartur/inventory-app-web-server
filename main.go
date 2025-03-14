@@ -36,7 +36,8 @@ func main() {
 	router.HandleFunc("/material_types", routeHandlers.GetMaterialTypesHandler).Methods("GET")
 	router.HandleFunc("/materials/move-to-location", routeHandlers.MoveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/remove-from-location", routeHandlers.RemoveMaterialHandler).Methods("PATCH")
-	
+	router.HandleFunc("/materials/description", routeHandlers.GetMaterialDescriptionHandler).Methods("GET")
+
 	router.HandleFunc("/requested_materials", routeHandlers.RequestMaterialsHandler).Methods("POST")
 	router.HandleFunc("/requested_materials", routeHandlers.GetRequestedMaterialsHandler).Methods("GET")
 	router.HandleFunc("/requested_materials", routeHandlers.UpdateRequestedMaterialHandler).Methods("PATCH")
