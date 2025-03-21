@@ -38,8 +38,12 @@ func reader(conn *websocket.Conn) {
 			return
 		}
 
-		if string(p) == "materialsUpdated" {
+		msgType := string(p)
+
+		if msgType == "materialsUpdated" {
 			handleSendMaterial()
+		} else if msgType == "vaultUpdated" {
+			handleSendVault()
 		}
 	}
 }
@@ -49,7 +53,7 @@ func handleSendMaterial() {
 	materials, err := materials.GetIncomingMaterials(db, 0)
 	count := 0
 	for _, material := range materials {
-		if material.MaterialType != "CARDS" {
+		if material.MaterialType != "CARDS" && material.MaterialType != "CHIPS" {
 			count++
 		}
 	}
@@ -61,6 +65,26 @@ func handleSendMaterial() {
 
 	// Broadcast the message to all clients
 	msg := Message{Type: "incomingMaterialsQty", Data: count}
+	broadcastMessage(msg)
+}
+
+func handleSendVault() {
+	db, _ := database.ConnectToDB()
+	materials, err := materials.GetIncomingMaterials(db, 0)
+	count := 0
+	for _, material := range materials {
+		if material.MaterialType == "CARDS" || material.MaterialType == "CHIPS" {
+			count++
+		}
+	}
+
+	if err != nil {
+		log.Println("WS error getting materials:", err)
+		return
+	}
+
+	// Broadcast the message to all clients
+	msg := Message{Type: "incomingVaultQty", Data: count}
 	broadcastMessage(msg)
 }
 

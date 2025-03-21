@@ -109,7 +109,13 @@ CREATE TABLE IF NOT EXISTS incoming_materials (
 	user_id INT REFERENCES users (user_id) NOT NULL
 );
 
-CREATE TYPE ROLE AS ENUM ('admin', 'warehouse', 'csr', 'production');
+CREATE TYPE ROLE AS ENUM (
+	'admin',
+	'warehouse',
+	'csr',
+	'production',
+	'vault'
+);
 
 CREATE TABLE IF NOT EXISTS users (
 	user_id SERIAL PRIMARY KEY,
