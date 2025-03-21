@@ -62,7 +62,7 @@ type BalanceRep struct {
 	TotalValue   string
 }
 
-var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 2}
+var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 4}
 
 func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 	rows, err := t.DB.Query(`SELECT
