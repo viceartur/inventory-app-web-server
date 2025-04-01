@@ -22,7 +22,7 @@ func FetchLocations(db *sql.DB) ([]LocationDB, error) {
 		FROM locations l
 		LEFT JOIN warehouses w
 		ON l.warehouse_id = w.warehouse_id
-		ORDER BY l.name ASC;
+		ORDER BY w.name, l.name ASC;
 	`)
 	if err != nil {
 		return nil, err

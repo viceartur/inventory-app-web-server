@@ -83,7 +83,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 								($3 = '' OR tl.updated_at::TEXT >= $3) AND
 								($4 = '' OR tl.updated_at::TEXT <= $4) AND
 								($5 = '' OR m.owner::TEXT = $5)
-							 ORDER BY transaction_id;`,
+							 ORDER BY tl.updated_at ASC;`,
 		t.TrxFilter.CustomerId, t.TrxFilter.MaterialType, t.TrxFilter.DateFrom, t.TrxFilter.DateTo, t.TrxFilter.Owner)
 	if err != nil {
 		return []TransactionRep{}, err
