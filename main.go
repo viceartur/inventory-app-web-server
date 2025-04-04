@@ -22,6 +22,7 @@ func main() {
 
 	// Auth
 	router.HandleFunc("/users/auth", routeHandlers.AuthUsersHandler).Methods("POST")
+	router.HandleFunc("/users", routeHandlers.CreateUserHandler).Methods("POST")
 
 	// WebSocket
 	router.HandleFunc("/ws", websocket.WsEndpoint)

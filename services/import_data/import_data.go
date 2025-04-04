@@ -3,6 +3,7 @@ package import_data
 import (
 	"database/sql"
 	"log"
+	"strconv"
 )
 
 type ImportDataJSON struct {
@@ -52,16 +53,24 @@ type ImportResponse struct {
 	Not_Imported_Data    []ImportData
 }
 
+func removeLeadingZeros(s string) string {
+	num, err := strconv.Atoi(s)
+	if err != nil {
+		return s
+	}
+	return strconv.Itoa(num)
+}
+
 func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 	materialsCounter := 0
 	notImportedData := []ImportData{}
 	locations := []string{}
 
-	for i := 0; i < len(data.Data); i++ {
+	for i := range data.Data {
 		record := data.Data[i]
 		importData := ImportData{
 			CustomerName:  record.CustomerName,
-			CustomerCode:  record.CustomerCode,
+			CustomerCode:  removeLeadingZeros(record.CustomerCode),
 			WarehouseName: record.WarehouseName,
 			LocationName:  record.LocationName,
 			StockID:       record.StockID,
@@ -103,9 +112,9 @@ func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 
 		// Check for a customer
 		var customerId int
-		err := db.QueryRow(`SELECT customer_id FROM customers
-						WHERE name = $1
-						AND customer_code = $2`,
+		err := db.QueryRow(`
+			SELECT customer_id FROM customers
+			WHERE LOWER(name) = LOWER($1) AND customer_code = $2`,
 			importData.CustomerName, importData.CustomerCode).
 			Scan(&customerId)
 
