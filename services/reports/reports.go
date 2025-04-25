@@ -19,10 +19,17 @@ type Transaction struct {
 	UpdatedAt         time.Time `field:"updated_at"`
 	TotalValue        float64   `field:"total_value"`
 	SerialNumberRange string    `field:"serial_number_range"`
+
+	// Weekly Usage Report:
+	CustomerName   string  `field:"customer_name"`
+	QtyOnRefDate   int32   `field:"quantity_on_ref_date"`
+	AvgWeeklyUsg   float32 `field:"avg_weekly_usage"`
+	WeeksRemaining float32 `field:"weeks_of_stock_remaining"`
 }
 
 type SearchQuery struct {
 	CustomerId   int
+	StockId      string
 	Owner        string
 	MaterialType string
 	DateFrom     string
@@ -44,6 +51,11 @@ type BalanceReport struct {
 	BlcFilter SearchQuery
 }
 
+type WeeklyUsageReport struct {
+	Report
+	WeeklyUsgFilter SearchQuery
+}
+
 type TransactionRep struct {
 	StockID           string
 	MaterialType      string
@@ -60,6 +72,15 @@ type BalanceRep struct {
 	MaterialType string
 	Qty          string
 	TotalValue   string
+}
+
+type WeeklyUsageRep struct {
+	CustomerName   string  `json:"customerName"`
+	StockID        string  `json:"stockId"`
+	MaterialType   string  `json:"materialType"`
+	QtyOnRefDate   int32   `json:"qtyOnRefDate"`
+	AvgWeeklyUsg   float32 `json:"avgWeeklyUsg"`
+	WeeksRemaining float32 `json:"weeksRemaining"`
 }
 
 var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 4}
@@ -181,4 +202,146 @@ func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
 
 	return blcList, err
 
+}
+
+// Generates a weekly usage report based on the provided filters in the WeeklyUsageReport struct.
+// It calculates the quantity of materials on a reference date, their average weekly usage over the past 6 weeks,
+// and the estimated number of weeks of stock remaining.
+func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
+	// Use today's date if dateAsOf is not provided
+	dateAsOf := w.WeeklyUsgFilter.DateAsOf
+	if dateAsOf == "" {
+		dateAsOf = time.Now().Format("2006-01-02")
+	}
+	rows, err := w.DB.Query(`
+		WITH
+			reference_date AS (
+				SELECT $1::DATE AS ref_date
+			),
+
+			-- Get total quantity_change *after* the reference date
+			future_usage AS (
+				SELECT
+					p.material_id,
+					SUM(tl.quantity_change) AS future_quantity_change
+				FROM
+					transactions_log tl
+					JOIN prices p ON p.price_id = tl.price_id
+					JOIN reference_date r ON true
+				WHERE
+					tl.updated_at > r.ref_date
+				GROUP BY
+					p.material_id
+			),
+
+			-- Quantity on the reference date = current quantity - future usage
+			material_quantities AS (
+				SELECT
+					m.material_id,
+					m.stock_id,
+					m.material_type,
+					m.customer_id,
+					m.quantity - COALESCE(fu.future_quantity_change, 0) AS quantity_on_ref_date
+				FROM
+					materials m
+					LEFT JOIN future_usage fu ON fu.material_id = m.material_id
+			),
+
+			-- Filter transactions within the 6-week window before reference date
+			filtered_transactions AS (
+				SELECT
+					tl.*,
+					p.material_id
+				FROM
+					transactions_log tl
+					JOIN prices p ON p.price_id = tl.price_id
+					JOIN reference_date r ON true
+				WHERE
+					tl.updated_at BETWEEN r.ref_date - INTERVAL '6 weeks' AND r.ref_date
+			),
+
+			-- Weekly usage per material
+			weekly_usage AS (
+				SELECT
+					material_id,
+					DATE_TRUNC ('week', updated_at) AS week_start,
+					SUM(quantity_change) AS total_used
+				FROM
+					filtered_transactions
+				WHERE
+					-- Only actual materials used are in the query
+					quantity_change < 0
+					AND notes NOT ILIKE 'moved from a location'
+				GROUP BY
+					material_id,
+					week_start
+			),
+
+			-- Average usage per material over 6 weeks
+			average_usage AS (
+				SELECT
+					material_id,
+					ABS(AVG(total_used)) AS avg_weekly_usage
+				FROM
+					weekly_usage
+				GROUP BY
+					material_id
+			)
+
+		-- Final output:
+		SELECT
+			c.name as customer_name,
+			mq.stock_id,
+			mq.material_type,
+			mq.quantity_on_ref_date,
+			ROUND(au.avg_weekly_usage, 2) AS avg_weekly_usage,
+			CASE
+				WHEN au.avg_weekly_usage IS NULL OR au.avg_weekly_usage = 0 THEN NULL
+				ELSE ROUND(mq.quantity_on_ref_date / au.avg_weekly_usage, 2)
+			END AS weeks_of_stock_remaining
+		FROM
+			material_quantities mq
+			LEFT JOIN average_usage au ON mq.material_id = au.material_id
+			LEFT JOIN customers c ON c.customer_id = mq.customer_id
+		WHERE
+			mq.quantity_on_ref_date > 0 AND
+			avg_weekly_usage > 0 AND
+			($2 = 0 OR c.customer_id = $2) AND
+			($3 = '' OR mq.stock_id = $3) AND
+			($4 = '' OR mq.material_type::TEXT = $4);
+		`,
+		dateAsOf, w.WeeklyUsgFilter.CustomerId, w.WeeklyUsgFilter.StockId, w.WeeklyUsgFilter.MaterialType,
+	)
+	if err != nil {
+		return []WeeklyUsageRep{}, err
+	}
+
+	weeklyUsgList := []WeeklyUsageRep{}
+
+	for rows.Next() {
+		usageTransaction := Transaction{}
+
+		err := rows.Scan(
+			&usageTransaction.CustomerName,
+			&usageTransaction.StockID,
+			&usageTransaction.MaterialType,
+			&usageTransaction.QtyOnRefDate,
+			&usageTransaction.AvgWeeklyUsg,
+			&usageTransaction.WeeksRemaining,
+		)
+		if err != nil {
+			return []WeeklyUsageRep{}, err
+		}
+
+		weeklyUsgList = append(weeklyUsgList, WeeklyUsageRep{
+			CustomerName:   usageTransaction.CustomerName,
+			StockID:        usageTransaction.StockID,
+			MaterialType:   usageTransaction.MaterialType,
+			QtyOnRefDate:   usageTransaction.QtyOnRefDate,
+			AvgWeeklyUsg:   usageTransaction.AvgWeeklyUsg,
+			WeeksRemaining: usageTransaction.WeeksRemaining,
+		})
+	}
+
+	return weeklyUsgList, err
 }

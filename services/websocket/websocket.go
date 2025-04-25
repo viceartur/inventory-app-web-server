@@ -15,8 +15,8 @@ var (
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	wsActiveClients = make(map[*websocket.Conn]bool)
-	clientsMutex    sync.Mutex
+	clients      = make(map[*websocket.Conn]bool)
+	clientsMutex sync.Mutex
 )
 
 type Message struct {
@@ -27,7 +27,7 @@ type Message struct {
 func addClient(conn *websocket.Conn) {
 	clientsMutex.Lock()
 	defer clientsMutex.Unlock()
-	wsActiveClients[conn] = true
+	clients[conn] = true
 }
 
 func reader(conn *websocket.Conn) {
@@ -88,6 +88,7 @@ func handleSendVault() {
 	broadcastMessage(msg)
 }
 
+// Send a message to all connected clients
 func broadcastMessage(message Message) {
 	clientsMutex.Lock()
 	defer clientsMutex.Unlock()
@@ -98,11 +99,11 @@ func broadcastMessage(message Message) {
 		return
 	}
 
-	for client := range wsActiveClients {
+	for client := range clients {
 		if err := client.WriteMessage(websocket.TextMessage, msg); err != nil {
 			log.Println("WS Broadcast WriteMessage error:", err)
 			client.Close()
-			delete(wsActiveClients, client)
+			delete(clients, client)
 		}
 
 	}
