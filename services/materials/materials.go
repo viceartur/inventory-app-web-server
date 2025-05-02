@@ -160,6 +160,65 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 	return materials, nil
 }
 
+// Find a Material using the exact search
+func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
+	if opts.StockId == "" {
+		return nil, nil
+	}
+
+	rows, err := db.Query(`
+		SELECT
+			material_id,
+			COALESCE(w.name,'None') as "warehouse_name",
+			c.name as "customer_name", c.customer_id,
+			COALESCE(l.location_id, 0) as "location_id",
+			COALESCE(l.name, 'None') as "location_name",
+			stock_id, quantity, min_required_quantity, max_required_quantity,
+			m.description, COALESCE(notes,'None') as "notes",
+			is_active, material_type, owner,
+			COALESCE(is_primary, false),
+			COALESCE(serial_number_range, '')
+		FROM materials m
+		LEFT JOIN customers c ON c.customer_id = m.customer_id
+		LEFT JOIN locations l ON l.location_id = m.location_id
+		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+		WHERE m.stock_id = $1;
+		`, opts.StockId,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
+	}
+	defer rows.Close()
+
+	var materials []MaterialDB
+	for rows.Next() {
+		var material MaterialDB
+		if err := rows.Scan(
+			&material.MaterialID,
+			&material.WarehouseName,
+			&material.CustomerName,
+			&material.CustomerID,
+			&material.LocationID,
+			&material.LocationName,
+			&material.StockID,
+			&material.Quantity,
+			&material.MinQty,
+			&material.MaxQty,
+			&material.Description,
+			&material.Notes,
+			&material.IsActive,
+			&material.MaterialType,
+			&material.Owner,
+			&material.IsPrimary,
+			&material.SerialNumberRange,
+		); err != nil {
+			return nil, fmt.Errorf("Error scanning row: %w", err)
+		}
+		materials = append(materials, material)
+	}
+	return materials, nil
+}
+
 // The method creates/updates a Material, its Prices, adds a Transaction Log, and deletes the Material from Incoming.
 // Method's Context: Material Creation. The Transaction Rollback is executed once an error occurs.
 func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int, error) {
@@ -627,16 +686,76 @@ func RemoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 	return nil
 }
 
-func UpdateMaterial(db *sql.DB, material MaterialJSON) error {
-	materialId, _ := strconv.Atoi(material.MaterialID)
-	_, err := db.Exec(`
-		UPDATE materials
-		SET is_primary = $2
-		WHERE material_id = $1
-	`, materialId, material.IsPrimary)
+func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
+	defer tx.Commit()
+
+	materialId, _ := strconv.Atoi(material.MaterialID)
+
+	// Checks whether IsPrimary field provided since
+	// this field cannot be updated at the same time with other fields
+	if material.IsPrimary != nil {
+		_, err := tx.Exec(`
+		UPDATE materials
+		SET is_primary = $2
+		WHERE material_id = $1
+		`, materialId, *material.IsPrimary)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Update a Material quantity
+		qty, _ := strconv.Atoi(material.Qty)
+
+		var updatedMaterialId int
+
+		rows, err := tx.Query(`
+			UPDATE materials
+			SET quantity = quantity + $2
+			WHERE material_id = $1
+			RETURNING material_id;
+		`, materialId, qty)
+		if err != nil {
+			return err
+		}
+
+		for rows.Next() {
+			err := rows.Scan(&updatedMaterialId)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		if updatedMaterialId == 0 {
+			return errors.New("No Material Found")
+		}
+
+		// Update a Price
+		priceInfo := Price{materialId: materialId, qty: qty, cost: 0}
+		priceId, err := upsertPrice(tx, priceInfo)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Add a Transaction
+		trxInfo := &TransactionInfo{
+			priceId:   priceId,
+			qty:       qty,
+			jobTicket: material.JobTicket,
+			updatedAt: time.Now(),
+		}
+		err = addTranscation(trxInfo, tx)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -777,4 +896,55 @@ func GetMaterialDescription(db *sql.DB, stockId string) (string, error) {
 		return "", err
 	}
 	return description, nil
+}
+
+func GetMaterialTransactions(db *sql.DB, jobTicket string) ([]Transaction, error) {
+	rows, err := db.Query(`
+		SELECT
+			m.material_id,
+			m.stock_id,
+			l.location_id,
+			l.name,
+			w.warehouse_id,
+			w.name,
+			tl.quantity_change,
+			tl.job_ticket
+		FROM materials m
+		LEFT JOIN locations l ON l.location_id = m.location_id
+		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+		LEFT JOIN prices p ON p.material_id = m.material_id
+		LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+		WHERE
+			tl.quantity_change < 0
+			AND tl.job_ticket = $1
+	`, jobTicket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []Transaction
+
+	for rows.Next() {
+		var t Transaction
+		if err := rows.Scan(
+			&t.MaterialID,
+			&t.StockID,
+			&t.LocationID,
+			&t.LocationName,
+			&t.WarehouseID,
+			&t.WarehouseName,
+			&t.Quantity,
+			&t.JobTicket,
+		); err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
 }

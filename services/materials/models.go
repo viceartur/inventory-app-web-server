@@ -44,7 +44,7 @@ type MaterialJSON struct {
 	LocationID        string `json:"locationId"`
 	Qty               string `json:"quantity"`
 	Notes             string `json:"notes"`
-	IsPrimary         bool   `json:"isPrimary"`
+	IsPrimary         *bool  `json:"isPrimary,omitempty"`
 	SerialNumberRange string `json:"serialNumberRange"`
 	JobTicket         string `json:"jobTicket"`
 	StockID           string `json:"stockId"`
@@ -82,6 +82,17 @@ type MaterialDB struct {
 	QtyRequested      int       `field:"quantity_requested"`
 	QtyUsed           int       `field:"quantity_used"`
 	RequestedAt       time.Time `field:"requested_at"`
+}
+
+type Transaction struct {
+	MaterialID    int    `field:"material_id" json:"materialId"`
+	StockID       string `field:"stock_id" json:"stockId"`
+	LocationID    int    `field:"location_id" json:"locationId"`
+	LocationName  string `field:"location_name" json:"locationName"`
+	WarehouseID   int    `field:"warehouse_id" json:"warehouseId"`
+	WarehouseName string `field:"warehouse_name" json:"warehouseName"`
+	Quantity      int    `field:"quantity" json:"quantity"`
+	JobTicket     string `field:"job_ticket" json:"jobTicket"`
 }
 
 type MaterialFilter struct {

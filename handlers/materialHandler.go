@@ -89,7 +89,7 @@ func CreateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func GetMaterialsHandler(w http.ResponseWriter, r *http.Request) {
+func GetMaterialsLikeHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
@@ -117,18 +117,38 @@ func GetMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(materials)
 }
 
+func GetMaterialsExactHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	stockId := r.URL.Query().Get("stockId")
+	filterOpts := &materials.MaterialFilter{
+		StockId: stockId,
+	}
+	materials, err := materials.GetMaterialsByStockID(db, filterOpts)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(materials)
+}
+
 func UpdateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
 	var material materials.MaterialJSON
 	json.NewDecoder(r.Body).Decode(&material)
-	err := materials.UpdateMaterial(db, material)
+
+	ctx := context.TODO()
+	err := materials.UpdateMaterial(ctx, db, material)
 
 	if err != nil {
 		errRes := ErrorResponseJSON{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
-		http.Error(w, string(res), http.StatusConflict)
+		http.Error(w, string(res), http.StatusNotFound)
 		return
 	}
 	res := SuccessResponseJSON{Message: "Material Updated"}
@@ -251,5 +271,22 @@ func GetMaterialDescriptionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := SuccessResponseJSON{Message: "Material Description Requested", Data: description}
+	json.NewEncoder(w).Encode(res)
+}
+
+func GetMaterialTransactionsHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	jobTicket := r.URL.Query().Get("jobTicket")
+	transactions, err := materials.GetMaterialTransactions(db, jobTicket)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Material Transactions Requested", Data: transactions}
 	json.NewEncoder(w).Encode(res)
 }
