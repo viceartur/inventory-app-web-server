@@ -5,6 +5,7 @@ import (
 	"inv_app/database"
 	"inv_app/services/materials"
 	"log"
+	"slices"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -53,7 +54,14 @@ func handleSendMaterial() {
 	materials, err := materials.GetIncomingMaterials(db, 0)
 	count := 0
 	for _, material := range materials {
-		if material.MaterialType != "CARDS" && material.MaterialType != "CHIPS" {
+		if !slices.Contains(
+			[]string{
+				"CARDS (PVC)",
+				"CARDS (METAL)",
+				"CHIPS",
+			},
+			material.MaterialType,
+		) {
 			count++
 		}
 	}
@@ -73,7 +81,14 @@ func handleSendVault() {
 	materials, err := materials.GetIncomingMaterials(db, 0)
 	count := 0
 	for _, material := range materials {
-		if material.MaterialType == "CARDS" || material.MaterialType == "CHIPS" {
+		if slices.Contains(
+			[]string{
+				"CARDS (PVC)",
+				"CARDS (METAL)",
+				"CHIPS",
+			},
+			material.MaterialType,
+		) {
 			count++
 		}
 	}
