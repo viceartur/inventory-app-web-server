@@ -205,7 +205,7 @@ func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 		_, err = db.Query(`
 			INSERT INTO transactions_log(price_id, quantity_change, notes, job_ticket, updated_at)
 			VALUES($1,$2,$3,$4,NOW())`,
-			priceId, importData.Qty, importData.Notes, "Imported",
+			priceId, importData.Qty, importData.Notes, "Import",
 		)
 		if err != nil {
 			importData.ERR_REASON = err.Error()

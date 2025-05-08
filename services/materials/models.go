@@ -44,7 +44,7 @@ type MaterialJSON struct {
 	LocationID        string `json:"locationId"`
 	Qty               string `json:"quantity"`
 	Notes             string `json:"notes"`
-	IsPrimary         *bool  `json:"isPrimary,omitempty"`
+	IsPrimary         *bool  `json:"isPrimary"`
 	SerialNumberRange string `json:"serialNumberRange"`
 	JobTicket         string `json:"jobTicket"`
 	StockID           string `json:"stockId"`

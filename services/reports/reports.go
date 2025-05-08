@@ -25,10 +25,14 @@ type Transaction struct {
 	QtyOnRefDate   int32   `field:"quantity_on_ref_date"`
 	AvgWeeklyUsg   float32 `field:"avg_weekly_usage"`
 	WeeksRemaining float32 `field:"weeks_of_stock_remaining"`
+
+	// Transactions Log Report:
+	JobTicket string `field:"job_ticket"`
 }
 
 type SearchQuery struct {
-	CustomerId   int
+	WarehouseID  int
+	CustomerID   int
 	StockId      string
 	Owner        string
 	MaterialType string
@@ -56,14 +60,21 @@ type WeeklyUsageReport struct {
 	WeeklyUsgFilter SearchQuery
 }
 
+type TransactionLogReport struct {
+	Report
+	TrxLogFilter SearchQuery
+}
+
 type TransactionRep struct {
 	StockID           string
+	LocationName      string
 	MaterialType      string
 	Qty               string
 	UnitCost          string
 	Cost              string
 	Date              string
 	SerialNumberRange string
+	JobTicket         string
 }
 
 type BalanceRep struct {
@@ -105,7 +116,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 								($4 = '' OR tl.updated_at::TEXT <= $4) AND
 								($5 = '' OR m.owner::TEXT = $5)
 							 ORDER BY tl.transaction_id ASC;`,
-		t.TrxFilter.CustomerId, t.TrxFilter.MaterialType, t.TrxFilter.DateFrom, t.TrxFilter.DateTo, t.TrxFilter.Owner)
+		t.TrxFilter.CustomerID, t.TrxFilter.MaterialType, t.TrxFilter.DateFrom, t.TrxFilter.DateTo, t.TrxFilter.Owner)
 	if err != nil {
 		return []TransactionRep{}, err
 	}
@@ -168,7 +179,7 @@ func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
 		GROUP BY m.stock_id, m.description, m.material_type
 		ORDER BY m.material_type ASC, m.description ASC;
 `,
-		b.BlcFilter.CustomerId, b.BlcFilter.MaterialType, b.BlcFilter.DateAsOf, b.BlcFilter.Owner,
+		b.BlcFilter.CustomerID, b.BlcFilter.MaterialType, b.BlcFilter.DateAsOf, b.BlcFilter.Owner,
 	)
 	if err != nil {
 		return []BalanceRep{}, err
@@ -310,7 +321,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 			($3 = '' OR mq.stock_id = $3) AND
 			($4 = '' OR mq.material_type::TEXT = $4);
 		`,
-		dateAsOf, w.WeeklyUsgFilter.CustomerId, w.WeeklyUsgFilter.StockId, w.WeeklyUsgFilter.MaterialType,
+		dateAsOf, w.WeeklyUsgFilter.CustomerID, w.WeeklyUsgFilter.StockId, w.WeeklyUsgFilter.MaterialType,
 	)
 	if err != nil {
 		return []WeeklyUsageRep{}, err
@@ -344,4 +355,75 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 	}
 
 	return weeklyUsgList, err
+}
+
+func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
+	rows, err := tl.DB.Query(`
+		SELECT
+			m.stock_id,
+			m.material_type,
+			COALESCE(l.name, 'None') AS location_name,
+			COALESCE(tl.serial_number_range, ''),
+			tl.quantity_change AS "quantity",
+			tl.job_ticket,
+			tl.updated_at
+		FROM transactions_log tl
+		LEFT JOIN prices p ON p.price_id = tl.price_id
+		LEFT JOIN materials m ON m.material_id = p.material_id
+		LEFT JOIN locations l ON l.location_id = m.location_id
+		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+		LEFT JOIN customers c ON m.customer_id = c.customer_id
+		WHERE
+			($1 = 0 OR w.warehouse_id = $1) AND
+			($2 = 0 OR m.customer_id = $2) AND
+			($3 = '' OR m.material_type::TEXT = $3) AND
+			($4 = '' OR tl.updated_at::TEXT >= $4) AND
+			($5 = '' OR tl.updated_at::TEXT <= $5) AND
+			($6 = '' OR m.owner::TEXT = $6)
+		ORDER BY tl.transaction_id ASC;`,
+		tl.TrxLogFilter.WarehouseID,
+		tl.TrxLogFilter.CustomerID,
+		tl.TrxLogFilter.MaterialType,
+		tl.TrxLogFilter.DateFrom,
+		tl.TrxLogFilter.DateTo,
+		tl.TrxLogFilter.Owner,
+	)
+	if err != nil {
+		return []TransactionRep{}, err
+	}
+
+	trxList := []TransactionRep{}
+
+	for rows.Next() {
+		trx := Transaction{}
+
+		err := rows.Scan(
+			&trx.StockID,
+			&trx.MaterialType,
+			&trx.LocationName,
+			&trx.SerialNumberRange,
+			&trx.Qty,
+			&trx.JobTicket,
+			&trx.UpdatedAt)
+		if err != nil {
+			return []TransactionRep{}, err
+		}
+
+		year, month, day := trx.UpdatedAt.Date()
+		strDate := strconv.Itoa(int(month)) + "/" +
+			strconv.Itoa(day) + "/" +
+			strconv.Itoa(year)
+
+		trxList = append(trxList, TransactionRep{
+			StockID:           trx.StockID,
+			MaterialType:      trx.MaterialType,
+			LocationName:      trx.LocationName,
+			SerialNumberRange: trx.SerialNumberRange,
+			Qty:               strconv.Itoa(trx.Qty),
+			JobTicket:         trx.JobTicket,
+			Date:              strDate,
+		})
+	}
+
+	return trxList, nil
 }

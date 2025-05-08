@@ -57,6 +57,7 @@ func main() {
 	router.HandleFunc("/reports/transactions", routeHandlers.GetTransactionsReport).Methods("GET")
 	router.HandleFunc("/reports/balance", routeHandlers.GetBalanceReport).Methods("GET")
 	router.HandleFunc("/reports/weekly_usage", routeHandlers.GetWeeklyUsageReport).Methods("GET")
+	router.HandleFunc("/reports/transactions_log", routeHandlers.GetTransactionsLogReport).Methods("GET")
 
 	router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST")
 

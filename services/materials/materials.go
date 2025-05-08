@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"time"
 )
@@ -357,7 +358,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				incomingMaterial.MaxQty,
 				incomingMaterial.IsActive,
 				incomingMaterial.Owner,
-				material.IsPrimary,
+				false,
 				material.SerialNumberRange,
 			).Scan(&materialId)
 			if err != nil {
@@ -531,13 +532,14 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 	}
 
 	// 1.1. Update Prices for the current Location
+	autoTicket := "Auto-Ticket: " + strconv.Itoa(rand.IntN(899999)+100000)
 
 	// Remove Prices for the current Material ID
 	priceToRemove := PriceToRemove{
 		materialId: currMaterialId,
 		qty:        quantity,
 		notes:      "Moved TO a Location",
-		jobTicket:  "Auto-Ticket: " + time.Now().Local().String(),
+		jobTicket:  autoTicket,
 	}
 	removedPrices, err := removePricesFIFO(tx, priceToRemove)
 	if err != nil {
@@ -595,7 +597,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 
 	// 2.2. Update Prices for the new Location and Material ID
 
-	for i := 0; i < len(removedPrices); i++ {
+	for i := range removedPrices {
 		qty := removedPrices[i].qty
 		cost := removedPrices[i].cost
 		priceInfo := Price{materialId: newMaterialId, qty: qty, cost: cost}
@@ -610,7 +612,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			priceId:           priceId,
 			qty:               qty,
 			notes:             "Moved FROM a Location",
-			jobTicket:         "Auto-Ticket: " + time.Now().Local().String(),
+			jobTicket:         autoTicket,
 			updatedAt:         time.Now(),
 			serialNumberRange: material.SerialNumberRange,
 		}, tx)
