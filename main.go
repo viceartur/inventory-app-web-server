@@ -48,6 +48,7 @@ func main() {
 	router.HandleFunc("/incoming_materials", routeHandlers.SendMaterialHandler).Methods("POST")
 	router.HandleFunc("/incoming_materials", routeHandlers.GetIncomingMaterialsHandler).Methods("GET")
 	router.HandleFunc("/incoming_materials", routeHandlers.UpdateIncomingMaterialHandler).Methods("PUT")
+	router.HandleFunc("/incoming_materials", routeHandlers.DeleteIncomingMaterialHandler).Methods("DELETE")
 
 	router.HandleFunc("/warehouses", routeHandlers.CreateWarehouseHandler).Methods("POST")
 	router.HandleFunc("/warehouses", routeHandlers.GetWarehouseHandler).Methods("GET")

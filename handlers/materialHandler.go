@@ -69,6 +69,27 @@ func UpdateIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+func DeleteIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	var material materials.IncomingMaterialJSON
+	json.NewDecoder(r.Body).Decode(&material)
+	shippingId, _ := strconv.Atoi(material.ShippingId)
+
+	ctx := context.TODO()
+	err := materials.DeleteIncomingMaterial(ctx, db, shippingId)
+
+	if err != nil {
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponseJSON{Message: "Incoming Material Deleted"}
+	json.NewEncoder(w).Encode(res)
+}
+
 func CreateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()

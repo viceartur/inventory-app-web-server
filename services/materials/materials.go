@@ -449,6 +449,22 @@ func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterialJSON) error {
 	return nil
 }
 
+func DeleteIncomingMaterial(ctx context.Context, db *sql.DB, shippingId int) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Commit()
+
+	_, err = tx.Exec(`
+			DELETE FROM incoming_materials WHERE shipping_id = $1;`, shippingId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // The method changes the Material quantity at the current and new Location, its Prices, and adds Transaction Logs.
 // Method's Context: Material Moving. The Transaction Rollback is executed once an error occurs.
 func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error {
