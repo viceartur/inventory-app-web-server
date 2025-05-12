@@ -19,15 +19,7 @@ type Transaction struct {
 	UpdatedAt         time.Time `field:"updated_at"`
 	TotalValue        float64   `field:"total_value"`
 	SerialNumberRange string    `field:"serial_number_range"`
-
-	// Weekly Usage Report:
-	CustomerName   string  `field:"customer_name"`
-	QtyOnRefDate   int32   `field:"quantity_on_ref_date"`
-	AvgWeeklyUsg   float32 `field:"avg_weekly_usage"`
-	WeeksRemaining float32 `field:"weeks_of_stock_remaining"`
-
-	// Transactions Log Report:
-	JobTicket string `field:"job_ticket"`
+	JobTicket         string    `field:"job_ticket"`
 }
 
 type SearchQuery struct {
@@ -65,6 +57,11 @@ type TransactionLogReport struct {
 	TrxLogFilter SearchQuery
 }
 
+type VaultReport struct {
+	Report
+	// no filters yet
+}
+
 type TransactionRep struct {
 	StockID           string
 	LocationName      string
@@ -86,12 +83,21 @@ type BalanceRep struct {
 }
 
 type WeeklyUsageRep struct {
-	CustomerName   string  `json:"customerName"`
-	StockID        string  `json:"stockId"`
-	MaterialType   string  `json:"materialType"`
-	QtyOnRefDate   int32   `json:"qtyOnRefDate"`
-	AvgWeeklyUsg   float32 `json:"avgWeeklyUsg"`
-	WeeksRemaining float32 `json:"weeksRemaining"`
+	CustomerName   string  `field:"customer_name" json:"customerName"`
+	StockID        string  `field:"stock_id" json:"stockId"`
+	MaterialType   string  `field:"material_type" json:"materialType"`
+	QtyOnRefDate   int32   `field:"quantity_on_ref_date" json:"qtyOnRefDate"`
+	AvgWeeklyUsg   float32 `field:"avg_weekly_usage" json:"avgWeeklyUsg"`
+	WeeksRemaining float32 `field:"weeks_of_stock_remaining" json:"weeksRemaining"`
+}
+
+type VaultRep struct {
+	CustomerName  string `field:"customer_name" json:"customerName"`
+	MaterialType  string `field:"material_type" json:"materialType"`
+	StockID       string `field:"stock_id" json:"stockId"`
+	InnerVaultQty int    `field:"inner_vault_quantity" json:"innerVaultQty"`
+	OuterVaultQty int    `field:"outer_vault_quantity" json:"outerVaultQty"`
+	TotalQty      int    `field:"total_quantity" json:"totalQty"`
 }
 
 var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 4}
@@ -330,7 +336,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 	weeklyUsgList := []WeeklyUsageRep{}
 
 	for rows.Next() {
-		usageTransaction := Transaction{}
+		usageTransaction := WeeklyUsageRep{}
 
 		err := rows.Scan(
 			&usageTransaction.CustomerName,
@@ -426,4 +432,93 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 	}
 
 	return trxList, nil
+}
+
+func (vr VaultReport) GetReportList() ([]VaultRep, error) {
+	rows, err := vr.DB.Query(`
+		WITH
+			inner_vault AS (
+				SELECT
+					m.stock_id,
+					SUM(m.quantity) AS quantity
+				FROM
+					materials m
+					LEFT JOIN locations l ON l.location_id = m.location_id
+					LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+				WHERE
+					w.name = 'Inner Vault'
+				GROUP BY
+					m.stock_id
+			),
+			outer_vault AS (
+				SELECT
+					m.stock_id,
+					SUM(m.quantity) AS quantity
+				FROM
+					materials m
+					LEFT JOIN locations l ON l.location_id = m.location_id
+					LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+				WHERE
+					w.name = 'Outer Vault'
+				GROUP BY
+					m.stock_id
+			)
+		SELECT
+			c.name AS customer_name,
+			m.material_type,
+			m.stock_id,
+			COALESCE(iv.quantity, 0) AS inner_vault_quantity,
+			COALESCE(ov.quantity, 0) AS outer_vault_quantity,
+			SUM(m.quantity) AS total_quantity
+		FROM
+			materials m
+			LEFT JOIN customers c ON c.customer_id = m.customer_id
+			LEFT JOIN locations l ON l.location_id = m.location_id
+			LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
+			LEFT JOIN inner_vault iv ON iv.stock_id = m.stock_id
+			LEFT JOIN outer_vault ov ON ov.stock_id = m.stock_id
+		WHERE
+			w.name IN ('Inner Vault', 'Outer Vault')
+		GROUP BY
+			c.name,
+			m.material_type,
+			m.stock_id,
+			iv.quantity,
+			ov.quantity
+		ORDER BY
+			customer_name,
+			m.stock_id;
+	`)
+	if err != nil {
+		return []VaultRep{}, err
+	}
+
+	vaultReport := []VaultRep{}
+
+	for rows.Next() {
+		vault := VaultRep{}
+
+		err := rows.Scan(
+			&vault.CustomerName,
+			&vault.MaterialType,
+			&vault.StockID,
+			&vault.InnerVaultQty,
+			&vault.OuterVaultQty,
+			&vault.TotalQty,
+		)
+		if err != nil {
+			return []VaultRep{}, err
+		}
+
+		vaultReport = append(vaultReport, VaultRep{
+			CustomerName:  vault.CustomerName,
+			MaterialType:  vault.MaterialType,
+			StockID:       vault.StockID,
+			InnerVaultQty: vault.InnerVaultQty,
+			OuterVaultQty: vault.OuterVaultQty,
+			TotalQty:      vault.TotalQty,
+		})
+	}
+
+	return vaultReport, nil
 }

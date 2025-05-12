@@ -117,3 +117,17 @@ func GetTransactionsLogReport(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(trxLogReport)
 }
+
+func GetVaultReport(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	vaultRep := reports.VaultReport{Report: reports.Report{DB: db}}
+	vaultReport, err := vaultRep.GetReportList()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(vaultReport)
+}
