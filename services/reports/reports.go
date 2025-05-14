@@ -20,6 +20,8 @@ type Transaction struct {
 	TotalValue        float64   `field:"total_value"`
 	SerialNumberRange string    `field:"serial_number_range"`
 	JobTicket         string    `field:"job_ticket"`
+	ReasonDescription string    `field:"reason_description"`
+	CumulativeQty     int       `field:"cumulative_quantity"`
 }
 
 type SearchQuery struct {
@@ -72,6 +74,8 @@ type TransactionRep struct {
 	Date              string
 	SerialNumberRange string
 	JobTicket         string
+	ReasonDescription string
+	CumulativeQty     string
 }
 
 type BalanceRep struct {
@@ -103,26 +107,82 @@ type VaultRep struct {
 var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 4}
 
 func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
-	rows, err := t.DB.Query(`SELECT
-								m.stock_id,
-								m.material_type,
-								tl.quantity_change as "quantity",
-								p.cost as "unit_cost",
-								(tl.quantity_change * p.cost) as "cost",
-								tl.updated_at,
-								COALESCE(tl.serial_number_range, '')
-							 FROM transactions_log tl
-							 LEFT JOIN prices p ON p.price_id = tl.price_id
-							 LEFT JOIN materials m ON m.material_id = p.material_id
-							 LEFT JOIN customers c ON m.customer_id = c.customer_id
-							 WHERE 
-								($1 = 0 OR m.customer_id = $1) AND
-								($2 = '' OR m.material_type::TEXT = $2) AND
-								($3 = '' OR tl.updated_at::TEXT >= $3) AND
-								($4 = '' OR tl.updated_at::TEXT <= $4) AND
-								($5 = '' OR m.owner::TEXT = $5)
-							 ORDER BY tl.transaction_id ASC;`,
-		t.TrxFilter.CustomerID, t.TrxFilter.MaterialType, t.TrxFilter.DateFrom, t.TrxFilter.DateTo, t.TrxFilter.Owner)
+	rows, err := t.DB.Query(`
+			WITH
+				-- Compute starting quantity before the 'from' date for each stock
+				starting_quantities AS (
+					SELECT
+						m.stock_id,
+						COALESCE(SUM(tl.quantity_change), 0) AS starting_qty
+					FROM
+						transactions_log tl
+						LEFT JOIN prices p ON p.price_id = tl.price_id
+						LEFT JOIN materials m ON m.material_id = p.material_id
+						LEFT JOIN customers c ON m.customer_id = c.customer_id
+						WHERE
+							($1 = 0 OR m.customer_id = $1) AND
+							($2 = '' OR m.material_type = $2::MATERIAL_TYPE) AND
+							($5 = '' OR m.owner = $5::OWNER) AND
+							($4 = '' OR tl.updated_at < $4::timestamp)
+					GROUP BY
+						m.stock_id
+				),
+				-- Select and enrich all relevant transactions
+				ordered_transactions AS (
+					SELECT
+						m.stock_id,
+						m.material_type,
+						tl.quantity_change AS quantity,
+						p.cost AS unit_cost,
+						(tl.quantity_change * p.cost) AS cost,
+						tl.updated_at,
+						COALESCE(tl.serial_number_range, '') AS serial_number_range,
+						tl.transaction_id,
+						m.material_id
+					FROM
+						transactions_log tl
+						LEFT JOIN prices p ON p.price_id = tl.price_id
+						LEFT JOIN materials m ON m.material_id = p.material_id
+						LEFT JOIN customers c ON m.customer_id = c.customer_id
+						WHERE
+						    ($1 = 0 OR m.customer_id = $1) AND
+						    ($2 = '' OR m.material_type = $2::MATERIAL_TYPE) AND
+						    ($5 = '' OR m.owner = $5::OWNER)
+				)
+				-- Final result: transactions with cumulative quantities
+			SELECT
+				ot.stock_id,
+				ot.material_type,
+				ot.quantity,
+				ot.unit_cost,
+				ot.cost,
+				ot.updated_at,
+				ot.serial_number_range,
+				-- Calculate cumulative quantity (balance) per stock_id
+				COALESCE(sq.starting_qty, 0) - SUM(ot.quantity) OVER (
+					PARTITION BY
+						ot.stock_id
+					ORDER BY
+						ot.updated_at,
+						ot.transaction_id ROWS BETWEEN CURRENT ROW
+						AND UNBOUNDED FOLLOWING
+				) + ot.quantity AS cumulative_quantity
+			FROM
+				ordered_transactions ot
+				LEFT JOIN starting_quantities sq ON sq.stock_id = ot.stock_id
+				WHERE
+				    ($3 = '' OR ot.updated_at >= $3::timestamp) AND
+				    ($4 = '' OR ot.updated_at <= $4::timestamp)
+			ORDER BY
+				ot.updated_at,
+				ot.transaction_id ASC;
+	`,
+		t.TrxFilter.CustomerID,
+		t.TrxFilter.MaterialType,
+		t.TrxFilter.DateFrom,
+		t.TrxFilter.DateTo,
+		t.TrxFilter.Owner,
+	)
 	if err != nil {
 		return []TransactionRep{}, err
 	}
@@ -140,6 +200,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 			&trx.Cost,
 			&trx.UpdatedAt,
 			&trx.SerialNumberRange,
+			&trx.CumulativeQty,
 		)
 		if err != nil {
 			return []TransactionRep{}, err
@@ -160,6 +221,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 			Cost:              cost,
 			Date:              strDate,
 			SerialNumberRange: trx.SerialNumberRange,
+			CumulativeQty:     strconv.Itoa(trx.CumulativeQty),
 		})
 	}
 
@@ -372,13 +434,15 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 			COALESCE(tl.serial_number_range, ''),
 			tl.quantity_change AS "quantity",
 			tl.job_ticket,
-			tl.updated_at
+			tl.updated_at,
+			COALESCE(mus.description, '') AS reason_description
 		FROM transactions_log tl
 		LEFT JOIN prices p ON p.price_id = tl.price_id
 		LEFT JOIN materials m ON m.material_id = p.material_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 		LEFT JOIN customers c ON m.customer_id = c.customer_id
+		LEFT JOIN material_usage_reasons mus ON mus.reason_id = tl.reason_id
 		WHERE
 			($1 = 0 OR w.warehouse_id = $1) AND
 			($2 = 0 OR m.customer_id = $2) AND
@@ -410,7 +474,9 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 			&trx.SerialNumberRange,
 			&trx.Qty,
 			&trx.JobTicket,
-			&trx.UpdatedAt)
+			&trx.UpdatedAt,
+			&trx.ReasonDescription,
+		)
 		if err != nil {
 			return []TransactionRep{}, err
 		}
@@ -428,6 +494,7 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 			Qty:               strconv.Itoa(trx.Qty),
 			JobTicket:         trx.JobTicket,
 			Date:              strDate,
+			ReasonDescription: trx.ReasonDescription,
 		})
 	}
 

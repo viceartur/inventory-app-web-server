@@ -21,6 +21,18 @@ func GetMaterialTypesHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(materialTypes)
 }
 
+func GetMaterialUsageReasonsHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+	materialTypes, err := materials.FetchMaterialUsageReasons(db)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(materialTypes)
+}
+
 func SendMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()

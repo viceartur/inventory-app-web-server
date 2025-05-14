@@ -85,6 +85,15 @@ CREATE TABLE IF NOT EXISTS prices (
 	CONSTRAINT unique_material_id_cost UNIQUE (material_id, cost)
 );
 
+CREATE TYPE REASON_TYPE AS ENUM ('REMAKE');
+
+CREATE TABLE IF NOT EXISTS material_usage_reasons (
+	reason_id SERIAL PRIMARY KEY,
+	reason_type REASON_TYPE NOT NULL,
+	description VARCHAR(100) NOT NULL,
+	code INT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS transactions_log (
 	transaction_id SERIAL PRIMARY KEY,
 	price_id INT REFERENCES prices (price_id) ON DELETE CASCADE NOT NULL,
@@ -92,7 +101,8 @@ CREATE TABLE IF NOT EXISTS transactions_log (
 	notes TEXT,
 	job_ticket VARCHAR(100),
 	updated_at DATE,
-	serial_number_range VARCHAR(100)
+	serial_number_range VARCHAR(100),
+	reason_id INT REFERENCES material_usage_reasons (reason_id)
 );
 
 CREATE TABLE IF NOT EXISTS incoming_materials (

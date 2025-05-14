@@ -32,6 +32,37 @@ func FetchMaterialTypes(db *sql.DB) ([]string, error) {
 	return materialTypes, nil
 }
 
+func FetchMaterialUsageReasons(db *sql.DB) ([]MaterialUsageReason, error) {
+	rows, err := db.Query(`
+		SELECT
+			reason_id, reason_type, description, code
+		FROM
+			material_usage_reasons
+	`)
+	if err != nil {
+		return []MaterialUsageReason{}, err
+	}
+
+	var reasons []MaterialUsageReason
+	for rows.Next() {
+		var reason MaterialUsageReason
+
+		err := rows.Scan(
+			&reason.ReasonID,
+			&reason.ReasonType,
+			&reason.Description,
+			&reason.Code,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("Error scanning row: %w", err)
+		}
+		reasons = append(reasons, reason)
+	}
+
+	return reasons, nil
+}
+
 func SendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 	qty, _ := strconv.Atoi(material.Qty)
 	minQty, _ := strconv.Atoi(material.MinQty)
@@ -119,7 +150,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 			($3 = '' OR c.name ILIKE '%' || $3 || '%') AND
 			($4 = '' OR m.description ILIKE '%' || $4 || '%') AND
 			($5 = '' OR l.name ILIKE '%' || $5 || '%')
-		ORDER BY m.is_primary DESC NULLS LAST, m.stock_id ASC;
+		ORDER BY m.is_primary DESC NULLS LAST, c.name, m.stock_id ASC;
 		`,
 		opts.MaterialId,
 		opts.StockId,
@@ -694,6 +725,7 @@ func RemoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 		notes:             "Removed FROM a Location",
 		jobTicket:         jobTicket,
 		serialNumberRange: material.SerialNumberRange,
+		reasonId:          material.ReasonID,
 	}
 	_, err = removePricesFIFO(tx, priceToRemove)
 	if err != nil {

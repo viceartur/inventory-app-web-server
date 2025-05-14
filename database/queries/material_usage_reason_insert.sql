@@ -1,0 +1,25 @@
+INSERT INTO
+    material_usage_reasons (reason_type, description, code)
+VALUES
+    ('REMAKE', 'Bad Chip', '001'),
+    ('REMAKE', 'Bad Data', '002'),
+    ('REMAKE', 'Bad Magstripe', '003'),
+    ('REMAKE', 'Card Punch Issue', '004'),
+    ('REMAKE', 'Damaged in Machine', '005'),
+    ('REMAKE', 'Debris in Laminate', '006'),
+    ('REMAKE', 'Double Print', '007'),
+    ('REMAKE', 'Duplication', '008'),
+    ('REMAKE', 'Incorrect Product ID', '009'),
+    ('REMAKE', 'Locked Chip', '010'),
+    ('REMAKE', 'Logo Missing or Misprint', '011'),
+    ('REMAKE', 'Machine Error', '012'),
+    ('REMAKE', 'Manufacturer Defect', '013'),
+    ('REMAKE', 'MCES Issue', '014'),
+    ('REMAKE', 'Misprint', '015'),
+    ('REMAKE', 'Overlay Misaligned', '016'),
+    ('REMAKE', 'Rear Indent Misaligned', '017'),
+    ('REMAKE', 'Scratch in Vault', '018'),
+    ('REMAKE', 'Scratch in Machine', '019'),
+    ('REMAKE', 'Wrong Color Thermal', '020'),
+    ('REMAKE', 'Wrong File Selected', '021'),
+    ('REMAKE', 'Other Reason', '999');

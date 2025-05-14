@@ -36,6 +36,7 @@ func main() {
 	router.HandleFunc("/materials/exact", routeHandlers.GetMaterialsExactHandler).Methods("GET")
 	router.HandleFunc("/materials", routeHandlers.UpdateMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/material_types", routeHandlers.GetMaterialTypesHandler).Methods("GET")
+	router.HandleFunc("/material_usage_reasons", routeHandlers.GetMaterialUsageReasonsHandler).Methods("GET")
 	router.HandleFunc("/materials/move-to-location", routeHandlers.MoveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/remove-from-location", routeHandlers.RemoveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/description", routeHandlers.GetMaterialDescriptionHandler).Methods("GET")

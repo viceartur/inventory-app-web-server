@@ -75,17 +75,31 @@ func upsertPrice(tx *sql.Tx, priceInfo Price) (int, error) {
 }
 
 func addTranscation(trx *TransactionInfo, tx *sql.Tx) error {
-	rows, err := tx.Query(`
-			INSERT INTO transactions_log (
-					price_id, quantity_change, notes, job_ticket, updated_at,
-					serial_number_range
-				)
-			VALUES($1, $2, $3, $4, $5, $6);
-		`, trx.priceId, trx.qty, trx.notes, trx.jobTicket, trx.updatedAt, trx.serialNumberRange)
+	// Check whether the Reason ID provided
+	var reasonId any
+	if trx.reasonId > 0 {
+		reasonId = trx.reasonId
+	} else {
+		reasonId = nil
+	}
+
+	_, err := tx.Exec(`
+		INSERT INTO transactions_log (
+			price_id, quantity_change, notes, job_ticket, updated_at,
+			serial_number_range, reason_id
+		)
+		VALUES($1, $2, $3, $4, $5, $6, $7);
+	`, trx.priceId,
+		trx.qty,
+		trx.notes,
+		trx.jobTicket,
+		trx.updatedAt,
+		trx.serialNumberRange,
+		reasonId,
+	)
 	if err != nil {
 		return err
 	}
-	rows.Close()
 	return nil
 }
 
@@ -123,6 +137,7 @@ func removePricesFIFO(tx *sql.Tx, priceToRemove PriceToRemove) ([]Price, error) 
 				jobTicket:         jobTicket,
 				updatedAt:         time.Now(),
 				serialNumberRange: priceToRemove.serialNumberRange,
+				reasonId:          priceToRemove.reasonId,
 			}, tx)
 			if err != nil {
 				return nil, err
@@ -150,6 +165,7 @@ func removePricesFIFO(tx *sql.Tx, priceToRemove PriceToRemove) ([]Price, error) 
 				jobTicket:         jobTicket,
 				updatedAt:         time.Now(),
 				serialNumberRange: priceToRemove.serialNumberRange,
+				reasonId:          priceToRemove.reasonId,
 			}, tx)
 			if err != nil {
 				return nil, err

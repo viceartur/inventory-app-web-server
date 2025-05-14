@@ -50,6 +50,7 @@ type MaterialJSON struct {
 	StockID           string `json:"stockId"`
 	Description       string `json:"description"`
 	Status            string `json:"status"`
+	ReasonID          int    `json:"reasonId"`
 }
 
 type RequestedMaterialsJSON struct {
@@ -119,6 +120,7 @@ type PriceToRemove struct {
 	notes             string
 	jobTicket         string
 	serialNumberRange string
+	reasonId          int
 }
 
 type PriceDB struct {
@@ -135,4 +137,12 @@ type TransactionInfo struct {
 	jobTicket         string    `field:"job_ticket"`
 	updatedAt         time.Time `field:"updated_at"`
 	serialNumberRange string    `field:"serial_number_range"`
+	reasonId          int       `field:"reason_id"`
+}
+
+type MaterialUsageReason struct {
+	ReasonID    int    `field:"reason_id" json:"reasonId"`
+	ReasonType  string `field:"reason_type" json:"reasonType"`
+	Description string `field:"description" json:"description"`
+	Code        int    `field:"code" json:"code"`
 }
