@@ -7,20 +7,21 @@ import (
 )
 
 type ImportDataJSON struct {
-	CustomerName  string  `json:"Customer Name"`
-	CustomerCode  string  `json:"Customer Code"`
-	WarehouseName string  `json:"Warehouse Name"`
-	LocationName  string  `json:"Location Name"`
-	StockID       string  `json:"Stock ID"`
-	MaterialType  string  `json:"Material Type"`
-	Description   string  `json:"Description"`
-	Notes         string  `json:"Notes"`
-	Qty           int     `json:"Qty"`
-	MinQty        int     `json:"Min Qty"`
-	MaxQty        int     `json:"Max Qty"`
-	IsActive      bool    `json:"Is Active"`
-	Owner         string  `json:"Owner"`
-	UnitCost      float64 `json:"Unit Cost"`
+	CustomerName      string  `json:"Customer Name"`
+	CustomerCode      string  `json:"Customer Code"`
+	WarehouseName     string  `json:"Warehouse Name"`
+	LocationName      string  `json:"Location Name"`
+	StockID           string  `json:"Stock ID"`
+	MaterialType      string  `json:"Material Type"`
+	Description       string  `json:"Description"`
+	Notes             string  `json:"Notes"`
+	Qty               int     `json:"Qty"`
+	MinQty            int     `json:"Min Qty"`
+	MaxQty            int     `json:"Max Qty"`
+	IsActive          bool    `json:"Is Active"`
+	Owner             string  `json:"Owner"`
+	UnitCost          float64 `json:"Unit Cost"`
+	SerialNumberRange string  `json:"Serial Number Range"`
 }
 
 type ImportJSON struct {
@@ -28,21 +29,22 @@ type ImportJSON struct {
 }
 
 type ImportData struct {
-	CustomerName  string
-	CustomerCode  string
-	WarehouseName string
-	LocationName  string
-	StockID       string
-	MaterialType  string
-	Description   string
-	Notes         string
-	Qty           int
-	MinQty        int
-	MaxQty        int
-	IsActive      bool
-	Owner         string
-	UnitCost      float64
-	ERR_REASON    string
+	CustomerName      string
+	CustomerCode      string
+	WarehouseName     string
+	LocationName      string
+	StockID           string
+	MaterialType      string
+	Description       string
+	Notes             string
+	Qty               int
+	MinQty            int
+	MaxQty            int
+	IsActive          bool
+	Owner             string
+	UnitCost          float64
+	SerialNumberRange string
+	ERR_REASON        string
 }
 
 type ImportResponse struct {
@@ -69,20 +71,21 @@ func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 	for i := range data.Data {
 		record := data.Data[i]
 		importData := ImportData{
-			CustomerName:  record.CustomerName,
-			CustomerCode:  removeLeadingZeros(record.CustomerCode),
-			WarehouseName: record.WarehouseName,
-			LocationName:  record.LocationName,
-			StockID:       record.StockID,
-			MaterialType:  record.MaterialType,
-			Description:   record.Description,
-			Notes:         record.Notes,
-			Qty:           record.Qty,
-			MinQty:        record.MinQty,
-			MaxQty:        record.MaxQty,
-			IsActive:      record.IsActive,
-			Owner:         record.Owner,
-			UnitCost:      record.UnitCost,
+			CustomerName:      record.CustomerName,
+			CustomerCode:      removeLeadingZeros(record.CustomerCode),
+			WarehouseName:     record.WarehouseName,
+			LocationName:      record.LocationName,
+			StockID:           record.StockID,
+			MaterialType:      record.MaterialType,
+			Description:       record.Description,
+			Notes:             record.Notes,
+			Qty:               record.Qty,
+			MinQty:            record.MinQty,
+			MaxQty:            record.MaxQty,
+			IsActive:          record.IsActive,
+			Owner:             record.Owner,
+			UnitCost:          record.UnitCost,
+			SerialNumberRange: record.SerialNumberRange,
 		}
 
 		if importData.StockID == "" {
@@ -174,13 +177,24 @@ func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 		var materialId int
 		err = db.QueryRow(`
 			INSERT INTO materials(
-					stock_id,location_id,customer_id,material_type,
-					description,notes,quantity,min_required_quantity,
-					max_required_quantity,is_active,owner,updated_at,is_primary)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),false)
+					stock_id, location_id, customer_id, material_type,
+					description, notes, quantity, min_required_quantity,
+					max_required_quantity, is_active, owner, updated_at, is_primary, serial_number_range)
+			VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), false, $12)
 			RETURNING material_id`,
-			importData.StockID, locationId, customerId, importData.MaterialType,
-			importData.Description, importData.Notes, importData.Qty, importData.MinQty, importData.MaxQty, importData.IsActive, importData.Owner).
+			importData.StockID,
+			locationId,
+			customerId,
+			importData.MaterialType,
+			importData.Description,
+			importData.Notes,
+			importData.Qty,
+			importData.MinQty,
+			importData.MaxQty,
+			importData.IsActive,
+			importData.Owner,
+			importData.SerialNumberRange,
+		).
 			Scan(&materialId)
 		if err != nil {
 			importData.ERR_REASON = err.Error()
