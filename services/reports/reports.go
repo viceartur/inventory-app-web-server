@@ -97,7 +97,7 @@ type WeeklyUsageRep struct {
 
 type VaultRep struct {
 	CustomerName  string `field:"customer_name" json:"customerName"`
-	MaterialType  string `field:"material_type" json:"materialType"`
+	Description   string `field:"description" json:"description"`
 	StockID       string `field:"stock_id" json:"stockId"`
 	InnerVaultQty int    `field:"inner_vault_quantity" json:"innerVaultQty"`
 	OuterVaultQty int    `field:"outer_vault_quantity" json:"outerVaultQty"`
@@ -532,7 +532,7 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 			)
 		SELECT
 			c.name AS customer_name,
-			m.material_type,
+			m.description,
 			m.stock_id,
 			COALESCE(iv.quantity, 0) AS inner_vault_quantity,
 			COALESCE(ov.quantity, 0) AS outer_vault_quantity,
@@ -548,12 +548,13 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 			w.name IN ('Inner Vault', 'Outer Vault')
 		GROUP BY
 			c.name,
-			m.material_type,
+			m.description,
 			m.stock_id,
 			iv.quantity,
 			ov.quantity
 		ORDER BY
 			customer_name,
+			m.description,
 			m.stock_id;
 	`)
 	if err != nil {
@@ -567,7 +568,7 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 
 		err := rows.Scan(
 			&vault.CustomerName,
-			&vault.MaterialType,
+			&vault.Description,
 			&vault.StockID,
 			&vault.InnerVaultQty,
 			&vault.OuterVaultQty,
@@ -579,7 +580,7 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 
 		vaultReport = append(vaultReport, VaultRep{
 			CustomerName:  vault.CustomerName,
-			MaterialType:  vault.MaterialType,
+			Description:   vault.Description,
 			StockID:       vault.StockID,
 			InnerVaultQty: vault.InnerVaultQty,
 			OuterVaultQty: vault.OuterVaultQty,
