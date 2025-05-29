@@ -95,7 +95,8 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, err
 		FROM incoming_materials im
 		LEFT JOIN customers c ON c.customer_id = im.customer_id
 		LEFT JOIN users u ON u.user_id = im.user_id
-		WHERE $1 = 0 OR im.shipping_id = $1;
+		WHERE $1 = 0 OR im.shipping_id = $1
+		ORDER BY im.shipping_id;
 		`, materialId)
 	if err != nil {
 		return nil, fmt.Errorf("Error querying incoming materials: %w", err)
