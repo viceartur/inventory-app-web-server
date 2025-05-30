@@ -599,7 +599,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 	var newMaterialId int
 
 	// Find an existing Material in the Location
-	rows, err := db.Query(`
+	rows, err := tx.Query(`
 			UPDATE materials
 			SET quantity = (quantity + $1)
 			WHERE
@@ -610,18 +610,20 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 				`, quantity, stockId, newLocationId, owner,
 	)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	for rows.Next() {
 		err := rows.Scan(&newMaterialId)
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
 	// If there is no a Material in the new Location, then create it
 	if newMaterialId == 0 {
-		err = db.QueryRow(`
+		err = tx.QueryRow(`
 				INSERT INTO materials
 					(
 						stock_id, location_id,
@@ -639,6 +641,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			currMaterial.IsPrimary, currMaterial.SerialNumberRange).
 			Scan(&newMaterialId)
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
@@ -827,7 +830,7 @@ func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 	query := `
 	INSERT INTO requested_materials
 		(stock_id, description, quantity_requested, quantity_used, status, notes, updated_at, requested_at, user_id) VALUES `
-	args := []interface{}{}
+	args := []any{}
 	placeholderCount := 1
 
 	for i, m := range materials.Materials {
