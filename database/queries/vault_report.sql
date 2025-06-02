@@ -1,6 +1,7 @@
 WITH
     inner_vault AS (
         SELECT
+            l.name AS location_name,
             m.stock_id,
             SUM(m.quantity) AS quantity
         FROM
@@ -10,10 +11,12 @@ WITH
         WHERE
             w.name = 'Inner Vault'
         GROUP BY
+            l.name,
             m.stock_id
     ),
     outer_vault AS (
         SELECT
+            l.name AS location_name,
             m.stock_id,
             SUM(m.quantity) AS quantity
         FROM
@@ -23,18 +26,18 @@ WITH
         WHERE
             w.name = 'Outer Vault'
         GROUP BY
+            l.name,
             m.stock_id
     )
 SELECT
-    c.name AS customer_name,
-    m.material_type,
+    COALESCE(iv.location_name, '-') AS inner_location,
+    COALESCE(ov.location_name, '-') AS outer_location,
     m.stock_id,
     COALESCE(iv.quantity, 0) AS inner_vault_quantity,
     COALESCE(ov.quantity, 0) AS outer_vault_quantity,
     SUM(m.quantity) AS total_quantity
 FROM
     materials m
-    LEFT JOIN customers c ON c.customer_id = m.customer_id
     LEFT JOIN locations l ON l.location_id = m.location_id
     LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
     LEFT JOIN inner_vault iv ON iv.stock_id = m.stock_id
@@ -42,11 +45,12 @@ FROM
 WHERE
     w.name IN ('Inner Vault', 'Outer Vault')
 GROUP BY
-    c.name,
-    m.material_type,
+    iv.location_name,
+    ov.location_name,
     m.stock_id,
     iv.quantity,
     ov.quantity
 ORDER BY
-    customer_name,
+    iv.location_name,
+    ov.location_name,
     m.stock_id;

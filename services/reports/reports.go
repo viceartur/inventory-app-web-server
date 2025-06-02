@@ -96,8 +96,8 @@ type WeeklyUsageRep struct {
 }
 
 type VaultRep struct {
-	CustomerName  string `field:"customer_name" json:"customerName"`
-	Description   string `field:"description" json:"description"`
+	InnerLocation string `field:"inner_location" json:"innerLocation"`
+	OuterLocation string `field:"outer_location" json:"outerLocation"`
 	StockID       string `field:"stock_id" json:"stockId"`
 	InnerVaultQty int    `field:"inner_vault_quantity" json:"innerVaultQty"`
 	OuterVaultQty int    `field:"outer_vault_quantity" json:"outerVaultQty"`
@@ -506,6 +506,7 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 		WITH
 			inner_vault AS (
 				SELECT
+					l.name AS location_name,
 					m.stock_id,
 					SUM(m.quantity) AS quantity
 				FROM
@@ -515,10 +516,12 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 				WHERE
 					w.name = 'Inner Vault'
 				GROUP BY
+					l.name,
 					m.stock_id
 			),
 			outer_vault AS (
 				SELECT
+					l.name AS location_name,
 					m.stock_id,
 					SUM(m.quantity) AS quantity
 				FROM
@@ -528,18 +531,18 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 				WHERE
 					w.name = 'Outer Vault'
 				GROUP BY
+					l.name,
 					m.stock_id
 			)
 		SELECT
-			c.name AS customer_name,
-			m.description,
+			COALESCE(iv.location_name, '-') AS inner_location,
+			COALESCE(ov.location_name, '-') AS outer_location,
 			m.stock_id,
 			COALESCE(iv.quantity, 0) AS inner_vault_quantity,
 			COALESCE(ov.quantity, 0) AS outer_vault_quantity,
 			SUM(m.quantity) AS total_quantity
 		FROM
 			materials m
-			LEFT JOIN customers c ON c.customer_id = m.customer_id
 			LEFT JOIN locations l ON l.location_id = m.location_id
 			LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 			LEFT JOIN inner_vault iv ON iv.stock_id = m.stock_id
@@ -547,14 +550,14 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 		WHERE
 			w.name IN ('Inner Vault', 'Outer Vault')
 		GROUP BY
-			c.name,
-			m.description,
+			iv.location_name,
+			ov.location_name,
 			m.stock_id,
 			iv.quantity,
 			ov.quantity
 		ORDER BY
-			customer_name,
-			m.description,
+			iv.location_name,
+			ov.location_name,
 			m.stock_id;
 	`)
 	if err != nil {
@@ -567,8 +570,8 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 		vault := VaultRep{}
 
 		err := rows.Scan(
-			&vault.CustomerName,
-			&vault.Description,
+			&vault.InnerLocation,
+			&vault.OuterLocation,
 			&vault.StockID,
 			&vault.InnerVaultQty,
 			&vault.OuterVaultQty,
@@ -579,8 +582,8 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 		}
 
 		vaultReport = append(vaultReport, VaultRep{
-			CustomerName:  vault.CustomerName,
-			Description:   vault.Description,
+			InnerLocation: vault.InnerLocation,
+			OuterLocation: vault.OuterLocation,
 			StockID:       vault.StockID,
 			InnerVaultQty: vault.InnerVaultQty,
 			OuterVaultQty: vault.OuterVaultQty,
