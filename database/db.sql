@@ -21,7 +21,9 @@ DROP TYPE IF EXISTS owner;
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
 	name VARCHAR(100) NOT NULL UNIQUE,
-	customer_code VARCHAR(100) NOT NULL
+	customer_code VARCHAR(100) NOT NULL,
+	atlas_name VARCHAR(100),
+	is_active BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS warehouses (

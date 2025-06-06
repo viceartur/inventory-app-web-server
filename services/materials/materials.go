@@ -90,7 +90,7 @@ func SendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, error) {
 	rows, err := db.Query(`
 		SELECT shipping_id, c.name, c.customer_id, stock_id, cost, quantity,
-		min_required_quantity, max_required_quantity, description, is_active, type, owner,
+		min_required_quantity, max_required_quantity, description, im.is_active, type, owner,
 		u.user_id, u.username
 		FROM incoming_materials im
 		LEFT JOIN customers c ON c.customer_id = im.customer_id
@@ -138,7 +138,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 		COALESCE(l.name, 'None') as "location_name",
 		stock_id, quantity, min_required_quantity, max_required_quantity,
 		m.description, COALESCE(notes,'None') as "notes",
-		is_active, material_type, owner,
+		m.is_active, material_type, owner,
 		COALESCE(is_primary, false),
 		COALESCE(serial_number_range, '')
 		FROM materials m
@@ -208,7 +208,7 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, erro
 			COALESCE(l.name, 'None') as "location_name",
 			stock_id, quantity, min_required_quantity, max_required_quantity,
 			m.description, COALESCE(notes,'None') as "notes",
-			is_active, material_type, owner,
+			m.is_active, material_type, owner,
 			COALESCE(is_primary, false),
 			COALESCE(serial_number_range, '')
 		FROM materials m

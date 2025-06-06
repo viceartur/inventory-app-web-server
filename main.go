@@ -30,6 +30,8 @@ func main() {
 	// Routes
 	router.HandleFunc("/customers", routeHandlers.CreateCustomerHandler).Methods("POST")
 	router.HandleFunc("/customers", routeHandlers.GetCustomersHandler).Methods("GET")
+	router.HandleFunc("/customers/{customerId}", routeHandlers.GetCustomerHandler).Methods("GET")
+	router.HandleFunc("/customers", routeHandlers.UpdateCustomerHandler).Methods("PATCH")
 
 	router.HandleFunc("/materials", routeHandlers.CreateMaterialHandler).Methods("POST")
 	router.HandleFunc("/materials/like", routeHandlers.GetMaterialsLikeHandler).Methods("GET")

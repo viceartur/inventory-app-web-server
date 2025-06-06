@@ -11,15 +11,18 @@ func CreateWarehouseHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
-	var warehouse warehouses.WarehouseJSON
+	var warehouse warehouses.Warehouse
 	json.NewDecoder(r.Body).Decode(&warehouse)
 	err := warehouses.CreateWarehouse(warehouse, db)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(warehouse)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(SuccessResponseJSON{Message: "Warehouse and Location pair created."})
 }
 
 func GetWarehouseHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,9 +30,13 @@ func GetWarehouseHandler(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	warehouses, err := warehouses.FetchWarehouses(db)
+
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errRes := ErrorResponseJSON{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusNotFound)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(warehouses)
 }
