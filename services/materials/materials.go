@@ -129,16 +129,23 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, err
 	return materials, nil
 }
 
-func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
+func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 	rows, err := db.Query(`
 		SELECT material_id,
 		COALESCE(w.name,'None') as "warehouse_name",
-		c.name as "customer_name", c.customer_id,
+		c.name as "customer_name",
+		c.customer_id,
+		c.is_active as "is_active_customer",
 		COALESCE(l.location_id, 0) as "location_id",
 		COALESCE(l.name, 'None') as "location_name",
-		stock_id, quantity, min_required_quantity, max_required_quantity,
-		m.description, COALESCE(notes,'None') as "notes",
-		m.is_active, material_type, owner,
+		stock_id,
+		quantity,
+		min_required_quantity,
+		max_required_quantity,
+		m.description,
+		COALESCE(notes,'None') as "notes",
+		m.is_active as "is_active_material",
+		material_type, owner,
 		COALESCE(is_primary, false),
 		COALESCE(serial_number_range, '')
 		FROM materials m
@@ -151,7 +158,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 			($3 = '' OR c.name ILIKE '%' || $3 || '%') AND
 			($4 = '' OR m.description ILIKE '%' || $4 || '%') AND
 			($5 = '' OR l.name ILIKE '%' || $5 || '%')
-		ORDER BY m.is_primary DESC NULLS LAST, c.name, m.stock_id ASC;
+		ORDER BY m.is_primary DESC, c.name, m.stock_id ASC;
 		`,
 		opts.MaterialId,
 		opts.StockId,
@@ -164,14 +171,15 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 	}
 	defer rows.Close()
 
-	var materials []MaterialDB
+	var materials []Material
 	for rows.Next() {
-		var material MaterialDB
+		var material Material
 		if err := rows.Scan(
 			&material.MaterialID,
 			&material.WarehouseName,
 			&material.CustomerName,
 			&material.CustomerID,
+			&material.IsActiveCustomer,
 			&material.LocationID,
 			&material.LocationName,
 			&material.StockID,
@@ -180,7 +188,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 			&material.MaxQty,
 			&material.Description,
 			&material.Notes,
-			&material.IsActive,
+			&material.IsActiveMaterial,
 			&material.MaterialType,
 			&material.Owner,
 			&material.IsPrimary,
@@ -194,7 +202,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
 }
 
 // Find a Material using the exact search
-func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, error) {
+func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 	if opts.StockId == "" {
 		return nil, nil
 	}
@@ -204,11 +212,16 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, erro
 			material_id,
 			COALESCE(w.name,'None') as "warehouse_name",
 			c.name as "customer_name", c.customer_id,
+			c.is_active as "is_active_customer",
 			COALESCE(l.location_id, 0) as "location_id",
 			COALESCE(l.name, 'None') as "location_name",
-			stock_id, quantity, min_required_quantity, max_required_quantity,
+			stock_id,
+			quantity,
+			min_required_quantity,
+			max_required_quantity,
 			m.description, COALESCE(notes,'None') as "notes",
-			m.is_active, material_type, owner,
+			m.is_active as "is_active_material",
+			material_type, owner,
 			COALESCE(is_primary, false),
 			COALESCE(serial_number_range, '')
 		FROM materials m
@@ -223,14 +236,15 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, erro
 	}
 	defer rows.Close()
 
-	var materials []MaterialDB
+	var materials []Material
 	for rows.Next() {
-		var material MaterialDB
+		var material Material
 		if err := rows.Scan(
 			&material.MaterialID,
 			&material.WarehouseName,
 			&material.CustomerName,
 			&material.CustomerID,
+			&material.IsActiveCustomer,
 			&material.LocationID,
 			&material.LocationName,
 			&material.StockID,
@@ -239,7 +253,7 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]MaterialDB, erro
 			&material.MaxQty,
 			&material.Description,
 			&material.Notes,
-			&material.IsActive,
+			&material.IsActiveMaterial,
 			&material.MaterialType,
 			&material.Owner,
 			&material.IsPrimary,
@@ -537,7 +551,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 				notes = $2
 			WHERE material_id = $3 AND location_id = $4
 			RETURNING material_id, stock_id, location_id, customer_id, material_type,
-					description, notes, quantity, updated_at, is_active,
+					description, notes, quantity, updated_at, is_active as "is_active_material",
 					min_required_quantity, max_required_quantity, owner,
 					is_primary, serial_number_range;
 			`, quantity, currNotes, currMaterialId, currentLocationId,
@@ -551,7 +565,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			&currMaterial.Notes,
 			&currMaterial.Quantity,
 			&currMaterial.UpdatedAt,
-			&currMaterial.IsActive,
+			&currMaterial.IsActiveMaterial,
 			&currMaterial.MinQty,
 			&currMaterial.MaxQty,
 			&currMaterial.Owner,
@@ -636,7 +650,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 					RETURNING material_id;`,
 			stockId, newLocationId,
 			currMaterial.CustomerID, currMaterial.MaterialType, currMaterial.Description,
-			currNotes, quantity, time.Now(), currMaterial.IsActive,
+			currNotes, quantity, time.Now(), currMaterial.IsActiveMaterial,
 			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner,
 			currMaterial.IsPrimary, currMaterial.SerialNumberRange).
 			Scan(&newMaterialId)
@@ -863,7 +877,7 @@ func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 	return nil
 }
 
-func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB, error) {
+func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]Material, error) {
 	rows, err := db.Query(`
 		SELECT
 			request_id,
@@ -894,9 +908,9 @@ func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]MaterialDB,
 	}
 	defer rows.Close()
 
-	var materials []MaterialDB
+	var materials []Material
 	for rows.Next() {
-		var material MaterialDB
+		var material Material
 
 		if err := rows.Scan(
 			&material.RequestID,

@@ -58,31 +58,32 @@ type RequestedMaterialsJSON struct {
 	UserID    int            `json:"userId"`
 }
 
-type MaterialDB struct {
-	MaterialID        int       `field:"material_id"`
-	WarehouseName     string    `field:"warehouse_name"`
-	StockID           string    `field:"stock_id"`
-	CustomerID        int       `field:"customer_id"`
-	CustomerName      string    `field:"customer_name"`
-	LocationID        int       `field:"location_id"`
-	LocationName      string    `field:"location_name"`
-	MaterialType      string    `field:"material_type"`
-	Description       string    `field:"description"`
-	Notes             string    `field:"notes"`
-	Quantity          int       `field:"quantity"`
-	UpdatedAt         time.Time `field:"updated_at"`
-	IsActive          bool      `field:"is_active"`
-	MinQty            int       `field:"min_required_quantity"`
-	MaxQty            int       `field:"max_required_quantity"`
-	Owner             string    `field:"onwer"`
-	IsPrimary         bool      `field:"is_primary"`
-	SerialNumberRange string    `field:"serial_number_range"`
-	RequestID         int       `field:"request_id"`
-	UserName          string    `field:"username"`
-	Status            string    `field:"status"`
-	QtyRequested      int       `field:"quantity_requested"`
-	QtyUsed           int       `field:"quantity_used"`
-	RequestedAt       time.Time `field:"requested_at"`
+type Material struct {
+	MaterialID        int       `field:"material_id" json:"materialId"`
+	WarehouseName     string    `field:"warehouse_name" json:"warehouseName"`
+	StockID           string    `field:"stock_id" json:"stockId"`
+	CustomerID        int       `field:"customer_id" json:"customerId"`
+	CustomerName      string    `field:"customer_name" json:"customerName"`
+	IsActiveCustomer  bool      `field:"is_active_customer" json:"isActiveCustomer"`
+	LocationID        int       `field:"location_id" json:"locationId"`
+	LocationName      string    `field:"location_name" json:"locationName"`
+	MaterialType      string    `field:"material_type" json:"materialType"`
+	Description       string    `field:"description" json:"description"`
+	Notes             string    `field:"notes" json:"notes"`
+	Quantity          int       `field:"quantity" json:"quantity"`
+	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt"`
+	IsActiveMaterial  bool      `field:"is_active_material" json:"isActiveMaterial"`
+	MinQty            int       `field:"min_required_quantity" json:"minQty"`
+	MaxQty            int       `field:"max_required_quantity" json:"maxQty"`
+	Owner             string    `field:"onwer" json:"owner"`
+	IsPrimary         bool      `field:"is_primary" json:"isPrimary"`
+	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange"`
+	RequestID         int       `field:"request_id" json:"requestId"`
+	UserName          string    `field:"username" json:"userName"`
+	Status            string    `field:"status" json:"status"`
+	QtyRequested      int       `field:"quantity_requested" json:"qtyRequested"`
+	QtyUsed           int       `field:"quantity_used" json:"qtyUsed"`
+	RequestedAt       time.Time `field:"requested_at" json:"requestedAt"`
 }
 
 type Transaction struct {
