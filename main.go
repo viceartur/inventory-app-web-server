@@ -66,6 +66,8 @@ func main() {
 
 	router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST")
 
+	router.HandleFunc("/send-email", routeHandlers.SendEmailHandler).Methods("POST")
+
 	// Env loading
 	err := godotenv.Load(".env")
 	if err != nil {
