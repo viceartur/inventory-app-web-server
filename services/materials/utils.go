@@ -189,13 +189,14 @@ func deleteIncomingMaterial(tx *sql.Tx, shippingId int) error {
 	return nil
 }
 
-func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
-	var currMaterial MaterialDB
+func getMaterialById(materialId int, tx *sql.Tx) (Material, error) {
+	var currMaterial Material
 	err := tx.QueryRow(`SELECT
 							material_id, stock_id, location_id,
 							customer_id, material_type, description, notes,
 							quantity, updated_at,
-							is_active, min_required_quantity, max_required_quantity,
+							is_active as "is_active_material",
+							min_required_quantity, max_required_quantity,
 							owner, is_primary, COALESCE(serial_number_range, '')
 						FROM materials
 						WHERE material_id = $1`,
@@ -210,7 +211,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
 		&currMaterial.Notes,
 		&currMaterial.Quantity,
 		&currMaterial.UpdatedAt,
-		&currMaterial.IsActive,
+		&currMaterial.IsActiveMaterial,
 		&currMaterial.MinQty,
 		&currMaterial.MaxQty,
 		&currMaterial.Owner,
@@ -218,7 +219,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (MaterialDB, error) {
 		&currMaterial.SerialNumberRange,
 	)
 	if err != nil {
-		return MaterialDB{}, err
+		return Material{}, err
 	}
 
 	return currMaterial, nil
