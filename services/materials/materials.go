@@ -63,18 +63,18 @@ func FetchMaterialUsageReasons(db *sql.DB) ([]MaterialUsageReason, error) {
 	return reasons, nil
 }
 
-func SendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
-	qty, _ := strconv.Atoi(material.Qty)
-	minQty, _ := strconv.Atoi(material.MinQty)
-	maxQty, _ := strconv.Atoi(material.MaxQty)
+func SendMaterial(material IncomingMaterial, db *sql.DB) error {
+	qty := material.Quantity
+	minQty := material.MinQty
+	maxQty := material.MaxQty
 
 	_, err := db.Query(`
 				INSERT INTO incoming_materials
-					(customer_id, stock_id, cost, quantity,
+					(program_id, stock_id, cost, quantity,
 					max_required_quantity, min_required_quantity,
 					description, is_active, type, owner, user_id)
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		material.CustomerID, material.StockID, material.Cost,
+		material.ProgramID, material.StockID, material.Cost,
 		qty, maxQty, minQty,
 		material.Description, material.IsActive, material.MaterialType,
 		material.Owner,
@@ -87,13 +87,13 @@ func SendMaterial(material IncomingMaterialJSON, db *sql.DB) error {
 	return nil
 }
 
-func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, error) {
+func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterial, error) {
 	rows, err := db.Query(`
-		SELECT shipping_id, c.name, c.customer_id, stock_id, cost, quantity,
+		SELECT shipping_id, c.program_name, c.program_id, stock_id, cost, quantity,
 		min_required_quantity, max_required_quantity, description, im.is_active, type, owner,
 		u.user_id, u.username
 		FROM incoming_materials im
-		LEFT JOIN customers c ON c.customer_id = im.customer_id
+		LEFT JOIN customer_programs c ON c.program_id = im.program_id
 		LEFT JOIN users u ON u.user_id = im.user_id
 		WHERE $1 = 0 OR im.shipping_id = $1
 		ORDER BY im.shipping_id;
@@ -103,13 +103,13 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, err
 	}
 	defer rows.Close()
 
-	var materials []IncomingMaterialDB
+	var materials []IncomingMaterial
 	for rows.Next() {
-		var material IncomingMaterialDB
+		var material IncomingMaterial
 		if err := rows.Scan(
 			&material.ShippingID,
-			&material.CustomerName,
-			&material.CustomerID,
+			&material.ProgramName,
+			&material.ProgramID,
 			&material.StockID,
 			&material.Cost,
 			&material.Quantity,
@@ -132,37 +132,37 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterialDB, err
 func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 	rows, err := db.Query(`
 		SELECT material_id,
-		COALESCE(w.name,'None') as "warehouse_name",
-		c.name as "customer_name",
-		c.customer_id,
-		c.is_active as "is_active_customer",
-		COALESCE(l.location_id, 0) as "location_id",
-		COALESCE(l.name, 'None') as "location_name",
+		COALESCE(w.name,'None') AS "warehouse_name",
+		c.program_name AS "program_name",
+		c.program_id,
+		c.is_active AS "is_active_program",
+		COALESCE(l.location_id, 0) AS "location_id",
+		COALESCE(l.name, 'None') AS "location_name",
 		stock_id,
 		quantity,
 		min_required_quantity,
 		max_required_quantity,
 		m.description,
-		COALESCE(notes,'None') as "notes",
-		m.is_active as "is_active_material",
+		COALESCE(notes,'None') AS "notes",
+		m.is_active AS "is_active_material",
 		material_type, owner,
 		COALESCE(is_primary, false),
 		COALESCE(serial_number_range, '')
 		FROM materials m
-		LEFT JOIN customers c ON c.customer_id = m.customer_id
+		LEFT JOIN customer_programs c ON c.program_id = m.program_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 		WHERE
 			($1 = 0 OR m.material_id = $1) AND
 			($2 = '' OR m.stock_id ILIKE '%' || $2 || '%') AND
-			($3 = '' OR c.name ILIKE '%' || $3 || '%') AND
+			($3 = '' OR c.program_name ILIKE '%' || $3 || '%') AND
 			($4 = '' OR m.description ILIKE '%' || $4 || '%') AND
 			($5 = '' OR l.name ILIKE '%' || $5 || '%')
-		ORDER BY m.is_primary DESC, c.name, m.stock_id ASC;
+		ORDER BY m.is_primary DESC, c.program_name, m.stock_id ASC;
 		`,
 		opts.MaterialId,
 		opts.StockId,
-		opts.CustomerName,
+		opts.ProgramName,
 		opts.Description,
 		opts.LocationName,
 	)
@@ -177,9 +177,9 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 		if err := rows.Scan(
 			&material.MaterialID,
 			&material.WarehouseName,
-			&material.CustomerName,
-			&material.CustomerID,
-			&material.IsActiveCustomer,
+			&material.ProgramName,
+			&material.ProgramID,
+			&material.IsActiveProgram,
 			&material.LocationID,
 			&material.LocationName,
 			&material.StockID,
@@ -210,22 +210,22 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]Material, error)
 	rows, err := db.Query(`
 		SELECT
 			material_id,
-			COALESCE(w.name,'None') as "warehouse_name",
-			c.name as "customer_name", c.customer_id,
-			c.is_active as "is_active_customer",
-			COALESCE(l.location_id, 0) as "location_id",
-			COALESCE(l.name, 'None') as "location_name",
+			COALESCE(w.name,'None') AS "warehouse_name",
+			c.program_name, c.program_id,
+			c.is_active AS "is_active_program",
+			COALESCE(l.location_id, 0) AS "location_id",
+			COALESCE(l.name, 'None') AS "location_name",
 			stock_id,
 			quantity,
 			min_required_quantity,
 			max_required_quantity,
-			m.description, COALESCE(notes,'None') as "notes",
-			m.is_active as "is_active_material",
+			m.description, COALESCE(notes,'None') AS "notes",
+			m.is_active AS "is_active_material",
 			material_type, owner,
 			COALESCE(is_primary, false),
 			COALESCE(serial_number_range, '')
 		FROM materials m
-		LEFT JOIN customers c ON c.customer_id = m.customer_id
+		LEFT JOIN customer_programs c ON c.program_id = m.program_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
 		WHERE m.stock_id = $1;
@@ -242,9 +242,9 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]Material, error)
 		if err := rows.Scan(
 			&material.MaterialID,
 			&material.WarehouseName,
-			&material.CustomerName,
-			&material.CustomerID,
-			&material.IsActiveCustomer,
+			&material.ProgramName,
+			&material.ProgramID,
+			&material.IsActiveProgram,
 			&material.LocationID,
 			&material.LocationName,
 			&material.StockID,
@@ -275,14 +275,14 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	}
 	defer tx.Commit() // commit only if the method is done
 
-	var incomingMaterial IncomingMaterialDB
+	var incomingMaterial IncomingMaterial
 	err = tx.QueryRow(`
-		SELECT customer_id, stock_id, quantity, cost, min_required_quantity,
+		SELECT program_id, stock_id, quantity, cost, min_required_quantity,
 		max_required_quantity, description, is_active, type, owner
 		FROM incoming_materials
 		WHERE shipping_id = $1`, material.MaterialID).
 		Scan(
-			&incomingMaterial.CustomerID,
+			&incomingMaterial.ProgramID,
 			&incomingMaterial.StockID,
 			&incomingMaterial.Quantity,
 			&incomingMaterial.Cost,
@@ -325,7 +325,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 
 	// Upsert Prices
 	var priceId int
-	qty, _ := strconv.Atoi(material.Qty)
+	qty := material.Qty
 
 	if materialId != 0 {
 		priceInfo := Price{materialId: materialId, qty: qty, cost: incomingMaterial.Cost}
@@ -378,7 +378,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 						(
 							stock_id,
 							location_id,
-							customer_id,
+							program_id,
 							material_type,
 							description,
 							notes,
@@ -394,7 +394,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 						VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING material_id;`,
 				incomingMaterial.StockID,
 				material.LocationID,
-				incomingMaterial.CustomerID,
+				incomingMaterial.ProgramID,
 				incomingMaterial.MaterialType,
 				incomingMaterial.Description,
 				material.Notes,
@@ -423,7 +423,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	}
 
 	// Delete/Update the Material from Incoming
-	shippingId, _ := strconv.Atoi(material.MaterialID)
+	shippingId := material.MaterialID
 	if (incomingMaterial.Quantity == qty) || (incomingMaterial.Quantity < qty) {
 		err = deleteIncomingMaterial(tx, shippingId)
 		if err != nil {
@@ -431,12 +431,11 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 			return 0, err
 		}
 	} else {
-		material := &IncomingMaterial{shippingId: shippingId, qty: -qty}
 		_, err := tx.Exec(`
 					UPDATE incoming_materials
 					SET quantity = (quantity + $2)
 					WHERE shipping_id = $1
-					`, material.shippingId, material.qty,
+					`, shippingId, -qty,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -461,10 +460,10 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	return materialId, nil
 }
 
-func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterialJSON) error {
+func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterial) error {
 	_, err := db.Exec(`
 		UPDATE incoming_materials
-		SET customer_id = $2,
+		SET program_id = $2,
 			stock_id = $3,
 			cost = $4,
 			quantity = $5,
@@ -476,11 +475,11 @@ func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterialJSON) error {
 			owner = $11
 		WHERE shipping_id = $1;
 	`,
-		material.ShippingId,
-		material.CustomerID,
+		material.ShippingID,
+		material.ProgramID,
 		material.StockID,
 		material.Cost,
-		material.Qty,
+		material.Quantity,
 		material.MaxQty,
 		material.MinQty,
 		material.Description,
@@ -520,14 +519,14 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 	}
 	defer tx.Commit() // commit only if the method is done
 
-	materialId, _ := strconv.Atoi(material.MaterialID)
+	materialId := material.MaterialID
 	currMaterial, err := getMaterialById(materialId, tx)
 	if err != nil {
 		return err
 	}
 
 	newLocationId := material.LocationID
-	quantity, _ := strconv.Atoi(material.Qty)
+	quantity := material.Qty
 	actualQuantity := currMaterial.Quantity
 	currMaterialId := currMaterial.MaterialID
 	currentLocationId := currMaterial.LocationID
@@ -550,8 +549,8 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			SET quantity = (quantity - $1),
 				notes = $2
 			WHERE material_id = $3 AND location_id = $4
-			RETURNING material_id, stock_id, location_id, customer_id, material_type,
-					description, notes, quantity, updated_at, is_active as "is_active_material",
+			RETURNING material_id, stock_id, location_id, program_id, material_type,
+					description, notes, quantity, updated_at, is_active AS "is_active_material",
 					min_required_quantity, max_required_quantity, owner,
 					is_primary, serial_number_range;
 			`, quantity, currNotes, currMaterialId, currentLocationId,
@@ -559,7 +558,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			&currMaterial.MaterialID,
 			&currMaterial.StockID,
 			&currMaterial.LocationID,
-			&currMaterial.CustomerID,
+			&currMaterial.ProgramID,
 			&currMaterial.MaterialType,
 			&currMaterial.Description,
 			&currMaterial.Notes,
@@ -641,7 +640,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 				INSERT INTO materials
 					(
 						stock_id, location_id,
-						customer_id, material_type, description, notes,
+						program_id, material_type, description, notes,
 						quantity, updated_at,
 						is_active, min_required_quantity, max_required_quantity,
 						owner, is_primary, serial_number_range
@@ -649,7 +648,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 					RETURNING material_id;`,
 			stockId, newLocationId,
-			currMaterial.CustomerID, currMaterial.MaterialType, currMaterial.Description,
+			currMaterial.ProgramID, currMaterial.MaterialType, currMaterial.Description,
 			currNotes, quantity, time.Now(), currMaterial.IsActiveMaterial,
 			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner,
 			currMaterial.IsPrimary, currMaterial.SerialNumberRange).
@@ -699,14 +698,14 @@ func RemoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 	}
 	defer tx.Commit() // commit only if the method is done
 
-	materialId, _ := strconv.Atoi(material.MaterialID)
+	materialId := material.MaterialID
 	currMaterial, err := getMaterialById(materialId, tx)
 	if err != nil {
 		tx.Rollback()
 		return errors.New("Unable to get the current material info: " + err.Error())
 	}
 
-	quantity, _ := strconv.Atoi(material.Qty)
+	quantity := material.Qty
 	actualQuantity := currMaterial.Quantity
 	jobTicket := material.JobTicket
 
@@ -761,7 +760,7 @@ func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 	}
 	defer tx.Commit()
 
-	materialId, _ := strconv.Atoi(material.MaterialID)
+	materialId := material.MaterialID
 
 	// Checks whether IsPrimary field provided since
 	// this field cannot be updated at the same time with other fields
@@ -776,7 +775,7 @@ func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 		}
 	} else {
 		// Update a Material quantity
-		qty, _ := strconv.Atoi(material.Qty)
+		qty := material.Qty
 
 		var updatedMaterialId int
 
@@ -848,8 +847,8 @@ func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 	placeholderCount := 1
 
 	for i, m := range materials.Materials {
-		qty, err := strconv.Atoi(m.Qty)
-		if qty == 0 || err != nil {
+		qty := m.Qty
+		if qty == 0 {
 			continue
 		}
 
@@ -932,8 +931,8 @@ func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]Material, e
 }
 
 func UpdateRequestedMaterial(db *sql.DB, material MaterialJSON) error {
-	requestId, _ := strconv.Atoi(material.MaterialID)
-	quantity, _ := strconv.Atoi(material.Qty)
+	requestId := material.MaterialID
+	quantity := material.Qty
 
 	_, err := db.Exec(`
 		UPDATE requested_materials

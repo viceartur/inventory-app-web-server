@@ -36,7 +36,7 @@ func GetMaterialUsageReasonsHandler(w http.ResponseWriter, r *http.Request) {
 func SendMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
-	var material materials.IncomingMaterialJSON
+	var material materials.IncomingMaterial
 	json.NewDecoder(r.Body).Decode(&material)
 	err := materials.SendMaterial(material, db)
 
@@ -67,7 +67,7 @@ func UpdateIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
-	var material materials.IncomingMaterialJSON
+	var material materials.IncomingMaterial
 	json.NewDecoder(r.Body).Decode(&material)
 	err := materials.UpdateIncomingMaterial(db, material)
 
@@ -85,9 +85,9 @@ func DeleteIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
-	var material materials.IncomingMaterialJSON
+	var material materials.IncomingMaterial
 	json.NewDecoder(r.Body).Decode(&material)
-	shippingId, _ := strconv.Atoi(material.ShippingId)
+	shippingId := material.ShippingID
 
 	ctx := context.TODO()
 	err := materials.DeleteIncomingMaterial(ctx, db, shippingId)
@@ -129,14 +129,14 @@ func GetMaterialsLikeHandler(w http.ResponseWriter, r *http.Request) {
 	materialId := r.URL.Query().Get("materialId")
 	id, _ := strconv.Atoi(materialId)
 	stockId := r.URL.Query().Get("stockId")
-	customerName := r.URL.Query().Get("customerName")
+	programName := r.URL.Query().Get("programName")
 	description := r.URL.Query().Get("description")
 	locationName := r.URL.Query().Get("locationName")
 
 	filterOpts := &materials.MaterialFilter{
 		MaterialId:   id,
 		StockId:      stockId,
-		CustomerName: customerName,
+		ProgramName:  programName,
 		Description:  description,
 		LocationName: locationName,
 	}

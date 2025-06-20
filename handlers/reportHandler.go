@@ -20,7 +20,7 @@ func GetTransactionsReport(w http.ResponseWriter, r *http.Request) {
 	dateTo := r.URL.Query().Get("dateTo")
 
 	trxRep := reports.TransactionReport{Report: reports.Report{DB: db}, TrxFilter: reports.SearchQuery{
-		CustomerID:   customerId,
+		ProgramID:    customerId,
 		Owner:        owner,
 		MaterialType: materialType,
 		DateFrom:     dateFrom,
@@ -46,7 +46,7 @@ func GetBalanceReport(w http.ResponseWriter, r *http.Request) {
 	dateAsOf := r.URL.Query().Get("dateAsOf")
 
 	balanceRep := reports.BalanceReport{Report: reports.Report{DB: db}, BlcFilter: reports.SearchQuery{
-		CustomerID:   customerId,
+		ProgramID:    customerId,
 		Owner:        owner,
 		MaterialType: materialType,
 		DateAsOf:     dateAsOf,
@@ -73,7 +73,7 @@ func GetWeeklyUsageReport(w http.ResponseWriter, r *http.Request) {
 	weeklyUsgRep := reports.WeeklyUsageReport{
 		Report: reports.Report{DB: db},
 		WeeklyUsgFilter: reports.SearchQuery{
-			CustomerID:   customerId,
+			ProgramID:    customerId,
 			StockId:      stockId,
 			MaterialType: materialType,
 			DateAsOf:     dateAsOf,
@@ -103,7 +103,7 @@ func GetTransactionsLogReport(w http.ResponseWriter, r *http.Request) {
 
 	trxLogRep := reports.TransactionLogReport{Report: reports.Report{DB: db}, TrxLogFilter: reports.SearchQuery{
 		WarehouseID:  warehouseId,
-		CustomerID:   customerId,
+		ProgramID:    customerId,
 		Owner:        owner,
 		MaterialType: materialType,
 		DateFrom:     dateFrom,

@@ -1,9 +1,7 @@
 package email
 
 import (
-	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -22,18 +20,16 @@ type EmailRequest struct {
 
 // SendEmail sends an email with an Excel attachment using gomail.
 // Supports CC/BCC and dynamic Excel content.
-func SendEmail(req EmailRequest) error {
+func EmailInventoryReport(req EmailRequest, customerId int) error {
 	from := os.Getenv("SMTP_USER")
 	password := os.Getenv("SMTP_PASS")
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
 
-	log.Println(from, password, smtpHost, smtpPort)
-
 	// Generate Excel file
 	excelBuf, err := GenerateFormattedExcel()
 	if err != nil {
-		return fmt.Errorf("excel generation failed: %w", err)
+		return err
 	}
 
 	var body string
@@ -42,7 +38,7 @@ func SendEmail(req EmailRequest) error {
 	} else {
 		body, err = loadEmailBody("email_body.html")
 		if err != nil {
-			return fmt.Errorf("email body load failed: %w", err)
+			return err
 		}
 	}
 
@@ -72,16 +68,14 @@ func SendEmail(req EmailRequest) error {
 
 	port, err := strconv.Atoi(smtpPort)
 	if err != nil {
-		return fmt.Errorf("invalid SMTP_PORT: %w", err)
+		return err
 	}
 
 	d := gomail.NewDialer(smtpHost, port, from, password)
 	if err := d.DialAndSend(m); err != nil {
-		log.Printf("Gomail error: %v", err)
 		return err
 	}
 
-	log.Println("Email with Excel attachment sent successfully")
 	return nil
 }
 

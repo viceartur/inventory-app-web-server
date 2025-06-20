@@ -9,27 +9,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserJSON struct {
-	UserID   int    `json:"userId"`
-	Username string `json:"username"`
-	Password string `json:"password,omitempty"`
-	Role     string `json:"role"`
-}
-
-type UserDB struct {
-	UserID   int    `field:"user_id"`
-	Username string `field:"username"`
-	Password string `field:"password"`
-	Role     string `field:"role"`
+type User struct {
+	UserID   int    `json:"userId" field:"user_id"`
+	Username string `json:"username" field:"username"`
+	Password string `json:"password,omitempty" field:"password"`
+	Role     string `json:"role" field:"role"`
+	Email    string `json:"email" field:"email"`
 }
 
 // AuthUser authenticates a user by checking the username and password against the database
 // It returns the authenticated user information if successful, or an error if authentication fails.
-func AuthUser(db *sql.DB, user UserJSON) (UserJSON, error) {
+func AuthUser(db *sql.DB, user User) (User, error) {
 	username := user.Username
 	password := user.Password
 
-	var actualUser UserDB
+	var actualUser User
 	err := db.QueryRow(`
 		SELECT user_id, username, password, role FROM users WHERE username = $1
 		`, username).Scan(
@@ -41,18 +35,18 @@ func AuthUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return UserJSON{}, errors.New("No user found")
+			return User{}, errors.New("No user found")
 		}
-		return UserJSON{}, err
+		return User{}, err
 	}
 
 	// Compare the provided password with the hashed password in the database
 	err = bcrypt.CompareHashAndPassword([]byte(actualUser.Password), []byte(password))
 	if err != nil {
-		return UserJSON{}, errors.New("Wrong password")
+		return User{}, errors.New("Wrong password")
 	}
 
-	authUser := UserJSON{
+	authUser := User{
 		UserID:   actualUser.UserID,
 		Username: actualUser.Username,
 		Role:     actualUser.Role,
@@ -63,10 +57,10 @@ func AuthUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 
 // CreateUser creates a new user in the database with a hashed password
 // It returns the created user information or an error if the creation fails.
-func CreateUser(db *sql.DB, user UserJSON) (UserJSON, error) {
+func CreateUser(db *sql.DB, user User) (User, error) {
 	// Validate the input
 	if user.Username == "" || user.Role == "" {
-		return UserJSON{}, errors.New("Username and role are required")
+		return User{}, errors.New("Username and role are required")
 	}
 
 	// Check if the user already exists
@@ -74,11 +68,11 @@ func CreateUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 	err := db.QueryRow(`SELECT user_id FROM users WHERE username = $1`, user.Username).Scan(&existingUserID)
 
 	if err == nil {
-		return UserJSON{}, errors.New("User already exists")
+		return User{}, errors.New("User already exists")
 	}
 
 	if err != sql.ErrNoRows {
-		return UserJSON{}, err
+		return User{}, err
 	}
 
 	// Save the provided password or generate a random one if not provided
@@ -91,7 +85,7 @@ func CreateUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return UserJSON{}, err
+		return User{}, err
 	}
 
 	// Insert the new user into the database
@@ -101,7 +95,7 @@ func CreateUser(db *sql.DB, user UserJSON) (UserJSON, error) {
 	).Scan(&newUserID)
 
 	if err != nil {
-		return UserJSON{}, err
+		return User{}, err
 	}
 
 	user.UserID = newUserID      // Set the UserID created field

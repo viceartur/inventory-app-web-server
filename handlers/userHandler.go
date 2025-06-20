@@ -11,7 +11,7 @@ import (
 func AuthUsersHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
-	var user users.UserJSON
+	var user users.User
 	json.NewDecoder(r.Body).Decode(&user)
 	authUser, err := users.AuthUser(db, user)
 
@@ -28,7 +28,7 @@ func AuthUsersHandler(w http.ResponseWriter, r *http.Request) {
 func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
-	var user users.UserJSON
+	var user users.User
 	json.NewDecoder(r.Body).Decode(&user)
 	user, err := users.CreateUser(db, user)
 

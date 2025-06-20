@@ -31,7 +31,12 @@ func main() {
 	router.HandleFunc("/customers", routeHandlers.CreateCustomerHandler).Methods("POST")
 	router.HandleFunc("/customers", routeHandlers.GetCustomersHandler).Methods("GET")
 	router.HandleFunc("/customers/{customerId}", routeHandlers.GetCustomerHandler).Methods("GET")
-	router.HandleFunc("/customers", routeHandlers.UpdateCustomerHandler).Methods("PATCH")
+	router.HandleFunc("/customers/{customerId}", routeHandlers.UpdateCustomerHandler).Methods("PATCH")
+
+	router.HandleFunc("/customer_programs", routeHandlers.CreateCustomerProgramHandler).Methods("POST")
+	router.HandleFunc("/customer_programs", routeHandlers.GetCustomerProgramsHandler).Methods("GET")
+	router.HandleFunc("/customer_programs/{programId}", routeHandlers.GetCustomerProgramHandler).Methods("GET")
+	router.HandleFunc("/customer_programs/{programId}", routeHandlers.UpdateCustomerProgramHandler).Methods("PATCH")
 
 	router.HandleFunc("/materials", routeHandlers.CreateMaterialHandler).Methods("POST")
 	router.HandleFunc("/materials/like", routeHandlers.GetMaterialsLikeHandler).Methods("GET")
@@ -64,9 +69,9 @@ func main() {
 	router.HandleFunc("/reports/transactions_log", routeHandlers.GetTransactionsLogReport).Methods("GET")
 	router.HandleFunc("/reports/vault", routeHandlers.GetVaultReport).Methods("GET")
 
-	router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST")
+	// router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST") // temporarily off
 
-	router.HandleFunc("/send-email", routeHandlers.SendEmailHandler).Methods("POST")
+	router.HandleFunc("/email_inventory_report/{atlasName}", routeHandlers.EmailInventoryReportHandler).Methods("POST")
 
 	// Env loading
 	err := godotenv.Load(".env")

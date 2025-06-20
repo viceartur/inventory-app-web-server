@@ -34,8 +34,8 @@ func getMaterialPrices(tx *sql.Tx, materialId int) (map[int]Price, error) {
 }
 
 // The internal method changes the Prices quantity and returns updated Prices
-func updatePriceQty(tx *sql.Tx, priceInfo *Price) (float64, error) {
-	var updatedCost float64
+func updatePriceQty(tx *sql.Tx, priceInfo *Price) (float32, error) {
+	var updatedCost float32
 	err := tx.QueryRow(`
 					UPDATE prices
 					SET quantity = (quantity + $2)
@@ -193,7 +193,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (Material, error) {
 	var currMaterial Material
 	err := tx.QueryRow(`SELECT
 							material_id, stock_id, location_id,
-							customer_id, material_type, description, notes,
+							program_id, material_type, description, notes,
 							quantity, updated_at,
 							is_active as "is_active_material",
 							min_required_quantity, max_required_quantity,
@@ -205,7 +205,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (Material, error) {
 		&currMaterial.MaterialID,
 		&currMaterial.StockID,
 		&currMaterial.LocationID,
-		&currMaterial.CustomerID,
+		&currMaterial.ProgramID,
 		&currMaterial.MaterialType,
 		&currMaterial.Description,
 		&currMaterial.Notes,

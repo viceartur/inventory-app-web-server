@@ -20,10 +20,22 @@ DROP TYPE IF EXISTS owner;
 
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
-	name VARCHAR(100) NOT NULL UNIQUE,
-	customer_code VARCHAR(100) NOT NULL,
-	atlas_name VARCHAR(100),
-	is_active BOOLEAN
+	customer_name VARCHAR(100) NOT NULL UNIQUE,
+	user_id INT REFERENCES users (user_id) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customer_programs (
+	program_id SERIAL PRIMARY KEY,
+	program_name VARCHAR(100) NOT NULL UNIQUE,
+	program_code VARCHAR(100) NOT NULL,
+	is_active BOOLEAN,
+	customer_id INT REFERENCES customers (customer_id) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customer_emails (
+	id SERIAL PRIMARY KEY,
+	customer_id INT NOT NULL REFERENCES customers (customer_id) ON DELETE CASCADE,
+	email VARCHAR(100) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS warehouses (
@@ -65,7 +77,7 @@ CREATE TABLE IF NOT EXISTS materials (
 	material_id SERIAL PRIMARY KEY,
 	stock_id VARCHAR(100) NOT NULL,
 	location_id INT REFERENCES locations (location_id) UNIQUE,
-	customer_id INT REFERENCES customers (customer_id) NOT NULL,
+	program_id INT REFERENCES customer_programs (program_id) NOT NULL,
 	material_type MATERIAL_TYPE NOT NULL,
 	description TEXT,
 	notes TEXT,
@@ -109,7 +121,7 @@ CREATE TABLE IF NOT EXISTS transactions_log (
 
 CREATE TABLE IF NOT EXISTS incoming_materials (
 	shipping_id SERIAL PRIMARY KEY,
-	customer_id INT REFERENCES customers (customer_id) NOT NULL,
+	program_id INT REFERENCES customer_programs (program_id) NOT NULL,
 	stock_id VARCHAR(100) NOT NULL,
 	cost DECIMAL NOT NULL,
 	quantity INT NOT NULL,
@@ -134,7 +146,8 @@ CREATE TABLE IF NOT EXISTS users (
 	user_id SERIAL PRIMARY KEY,
 	username VARCHAR(100) NOT NULL,
 	password VARCHAR(100) NOT NULL,
-	role ROLE NOT NULL
+	role ROLE NOT NULL,
+	email VARCHAR(100) UNIQUE
 );
 
 CREATE TYPE REQUEST_STATUS AS ENUM ('pending', 'sent', 'declined');

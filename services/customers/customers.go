@@ -1,116 +1,95 @@
 package customers
 
 import (
+	"context"
 	"database/sql"
+	"log"
 )
 
 type Customer struct {
-	ID        int    `field:"id" json:"customerId"`
-	Name      string `field:"name" json:"customerName"`
-	Code      string `field:"customer_code" json:"customerCode"`
-	AtlasName string `field:"atlas_name" json:"atlasName"`
-	IsActive  bool   `field:"is_active" json:"isActive"`
+	CustomerID   int      `field:"customer_id" json:"customerId"`
+	CustomerName string   `field:"customer_name" json:"customerName"`
+	Emails       []string `json:"emails"`
+	UserID       int      `field:"user_id" json:"userId"`
+	Username     string   `field:"username" json:"username"`
 }
 
-func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
-	var createdCustomer Customer
+type CustomerProgram struct {
+	ProgramID    int    `field:"program_id" json:"programId"`
+	ProgramName  string `field:"program_name" json:"programName"`
+	ProgramCode  string `field:"program_code" json:"programCode"`
+	IsActive     bool   `field:"is_active" json:"isActive"`
+	CustomerID   int    `field:"customer_id" json:"customerId"`
+	CustomerName string `field:"customer_name" json:"customerName"`
+}
 
-	err := db.QueryRow(`
-		INSERT INTO
-			customers (name, customer_code, atlas_name, is_active)
-		VALUES ($1, $2, $3, $4)
-		RETURNING
-			customer_id, name, customer_code, atlas_name, is_active;
-	`,
-		customer.Name,
-		customer.Code,
-		customer.AtlasName,
-		customer.IsActive,
-	).Scan(
-		&createdCustomer.ID,
-		&createdCustomer.Name,
-		&createdCustomer.Code,
-		&createdCustomer.AtlasName,
-		&createdCustomer.IsActive,
-	)
+/* Customers CRUD */
+
+func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
+	log.Println("custgomer", customer)
+	tx, err := db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return Customer{}, err
 	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+	}()
 
-	return createdCustomer, nil
-}
-
-func FetchCustomers(db *sql.DB) ([]Customer, error) {
-	rows, err := db.Query(`
-		SELECT
-			customer_id,
-			name,
-			customer_code,
-			atlas_name,
-			is_active
-		FROM
-			customers
-		ORDER BY
-			name;
-	`)
-
+	var customerID int
+	err = tx.QueryRow(`
+		INSERT INTO
+			customers (customer_name, user_id)
+		VALUES
+			($1, $2)
+		RETURNING
+			customer_id;
+	`, customer.CustomerName, customer.UserID).Scan(&customerID)
 	if err != nil {
-		return nil, err
+		tx.Rollback()
+		return Customer{}, err
 	}
-	defer rows.Close()
 
-	var customers []Customer
+	// Remove old emails if any
+	_, err = tx.Exec(`DELETE FROM customer_emails WHERE customer_id = $1`, customerID)
+	if err != nil {
+		tx.Rollback()
+		return Customer{}, err
+	}
 
-	for rows.Next() {
-		var customer Customer
-		var atlasName sql.NullString
-		if err := rows.Scan(
-			&customer.ID,
-			&customer.Name,
-			&customer.Code,
-			&atlasName,
-			&customer.IsActive,
-		); err != nil {
-			return customers, err
+	for _, email := range customer.Emails {
+		_, err := tx.Exec(`
+			INSERT INTO
+				customer_emails (customer_id, email)
+			VALUES
+				($1, $2)
+		`, customerID, email)
+		if err != nil {
+			tx.Rollback()
+			return Customer{}, err
 		}
-
-		if atlasName.Valid {
-			customer.AtlasName = atlasName.String
-		} else {
-			customer.AtlasName = ""
-		}
-
-		customers = append(customers, customer)
-	}
-	if err = rows.Err(); err != nil {
-		return customers, err
 	}
 
-	return customers, nil
+	if err := tx.Commit(); err != nil {
+		return Customer{}, err
+	}
+
+	customer.CustomerID = customerID
+	return customer, nil
 }
 
-func FetchCustomer(db *sql.DB, customerId int) (Customer, error) {
-	var customer Customer
-	var atlasName sql.NullString
-
+func GetCustomer(db *sql.DB, customerId int) (Customer, error) {
+	log.Println("sss")
+	var c Customer
+	var username sql.NullString
 	err := db.QueryRow(`
-		SELECT
-			customer_id,
-			name,
-			customer_code,
-			atlas_name,
-			is_active
-		FROM
-			customers
-		WHERE
-			customer_id = $1;
-	`, customerId).Scan(
-		&customer.ID,
-		&customer.Name,
-		&customer.Code,
-		&atlasName,
-		&customer.IsActive,
-	)
+		SELECT c.customer_id, c.customer_name, c.user_id, u.username
+		FROM customers c
+		LEFT JOIN users u ON u.user_id = c.user_id
+		WHERE c.customer_id = $1
+	`, customerId).Scan(&c.CustomerID, &c.CustomerName, &c.UserID, &username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Customer{}, nil
@@ -118,45 +97,238 @@ func FetchCustomer(db *sql.DB, customerId int) (Customer, error) {
 		return Customer{}, err
 	}
 
-	if atlasName.Valid {
-		customer.AtlasName = atlasName.String
-	} else {
-		customer.AtlasName = ""
+	if username.Valid {
+		c.Username = username.String
 	}
 
-	return customer, nil
-}
-
-func UpdateCustomer(db *sql.DB, customer Customer) (Customer, error) {
-	row := db.QueryRow(`
-		UPDATE customers
-		SET
-			name = $1,
-			customer_code = $2,
-			atlas_name = $3,
-			is_active = $4
-		WHERE
-			customer_id = $5
-		RETURNING customer_id, name, customer_code, COALESCE(atlas_name, 'None'), is_active;
-	`,
-		customer.Name,
-		customer.Code,
-		customer.AtlasName,
-		customer.IsActive,
-		customer.ID,
-	)
-
-	var updatedCustomer Customer
-	err := row.Scan(
-		&updatedCustomer.ID,
-		&updatedCustomer.Name,
-		&updatedCustomer.Code,
-		&updatedCustomer.AtlasName,
-		&updatedCustomer.IsActive,
-	)
+	rows, err := db.Query(`SELECT email FROM customer_emails WHERE customer_id = $1`, customerId)
 	if err != nil {
 		return Customer{}, err
 	}
+	defer rows.Close()
 
-	return updatedCustomer, nil
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return Customer{}, err
+		}
+		c.Emails = append(c.Emails, email)
+	}
+
+	return c, nil
+}
+
+func GetCustomers(db *sql.DB) ([]Customer, error) {
+	rows, err := db.Query(`
+		SELECT c.customer_id, c.customer_name, c.user_id, u.username
+		FROM customers c
+		LEFT JOIN users u ON u.user_id = c.user_id
+		ORDER BY c.customer_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var customers []Customer
+	for rows.Next() {
+		var c Customer
+		var username sql.NullString
+		if err := rows.Scan(&c.CustomerID, &c.CustomerName, &c.UserID, &username); err != nil {
+			return customers, err
+		}
+		if username.Valid {
+			c.Username = username.String
+		}
+		// fetch emails
+		emailRows, err := db.Query(`SELECT email FROM customer_emails WHERE customer_id = $1`, c.CustomerID)
+		if err == nil {
+			for emailRows.Next() {
+				var email string
+				if err := emailRows.Scan(&email); err == nil {
+					c.Emails = append(c.Emails, email)
+				}
+			}
+			emailRows.Close()
+		}
+		customers = append(customers, c)
+	}
+	return customers, nil
+}
+
+func UpdateCustomer(db *sql.DB, customer Customer) (Customer, error) {
+	tx, err := db.BeginTx(context.TODO(), nil)
+	if err != nil {
+		return Customer{}, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	_, err = tx.Exec(`
+		UPDATE customers SET customer_name = $1, user_id = $2 WHERE customer_id = $3
+	`, customer.CustomerName, customer.UserID, customer.CustomerID)
+	if err != nil {
+		tx.Rollback()
+		return Customer{}, err
+	}
+
+	_, err = tx.Exec(`DELETE FROM customer_emails WHERE customer_id = $1`, customer.CustomerID)
+	if err != nil {
+		tx.Rollback()
+		return Customer{}, err
+	}
+
+	for _, email := range customer.Emails {
+		_, err := tx.Exec(`
+			INSERT INTO customer_emails (customer_id, email)
+			VALUES ($1, $2)
+			ON CONFLICT (email) DO UPDATE SET customer_id = EXCLUDED.customer_id;
+		`, customer.CustomerID, email)
+		if err != nil {
+			tx.Rollback()
+			return Customer{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Customer{}, err
+	}
+	return customer, nil
+}
+
+/* Customer Programs CRUD */
+
+func CreateCustomerProgram(db *sql.DB, cp CustomerProgram) (CustomerProgram, error) {
+	tx, err := db.BeginTx(context.TODO(), nil)
+	if err != nil {
+		return CustomerProgram{}, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	err = tx.QueryRow(`
+		INSERT INTO
+			customer_programs (program_name, program_code, customer_id, is_active)
+		VALUES
+			($1, $2, $3, $4)
+		RETURNING
+			program_id,
+			program_name,
+			program_code,
+			is_active,
+			customer_id;
+	`, cp.ProgramName, cp.ProgramCode, cp.CustomerID, cp.IsActive).
+		Scan(&cp.ProgramID, &cp.ProgramName, &cp.ProgramCode, &cp.IsActive, &cp.CustomerID)
+	if err != nil {
+		tx.Rollback()
+		return CustomerProgram{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return CustomerProgram{}, err
+	}
+
+	return cp, nil
+}
+
+func GetCustomerProgram(db *sql.DB, programID int) (CustomerProgram, error) {
+	var cp CustomerProgram
+	err := db.QueryRow(`
+		SELECT
+			cp.program_id,
+			cp.program_name,
+			cp.program_code,
+			cp.is_active,
+			COALESCE(cp.customer_id, 0),
+			COALESCE(c.customer_name, '')
+		FROM
+			customer_programs cp
+		LEFT JOIN customers c ON c.customer_id = cp.customer_id
+		WHERE
+			cp.program_id = $1;
+	`, programID).Scan(
+		&cp.ProgramID,
+		&cp.ProgramName,
+		&cp.ProgramCode,
+		&cp.IsActive,
+		&cp.CustomerID,
+		&cp.CustomerName,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return CustomerProgram{}, nil
+		}
+		return CustomerProgram{}, err
+	}
+	return cp, nil
+}
+
+func GetCustomerPrograms(db *sql.DB) ([]CustomerProgram, error) {
+	rows, err := db.Query(`
+		SELECT
+			cp.program_id,
+			cp.program_name,
+			cp.program_code,
+			cp.is_active,
+			COALESCE(cp.customer_id, 0),
+			COALESCE(c.customer_name, '')
+		FROM
+			customer_programs cp
+		LEFT JOIN customers c ON c.customer_id = cp.customer_id
+		ORDER BY c.customer_name, cp.program_name;
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var programs []CustomerProgram
+	for rows.Next() {
+		var cp CustomerProgram
+		if err := rows.Scan(
+			&cp.ProgramID,
+			&cp.ProgramName,
+			&cp.ProgramCode,
+			&cp.IsActive,
+			&cp.CustomerID,
+			&cp.CustomerName,
+		); err != nil {
+			return programs, err
+		}
+		programs = append(programs, cp)
+	}
+
+	return programs, nil
+}
+
+func UpdateCustomerProgram(db *sql.DB, cp CustomerProgram) (CustomerProgram, error) {
+	err := db.QueryRow(`
+		UPDATE
+			customer_programs
+		SET
+			program_name = $1,
+			program_code = $2,
+			is_active = $3,
+			customer_id = $4
+		WHERE
+			program_id = $5
+		RETURNING
+			program_id, 
+			program_name,
+			program_code, 
+			is_active, 
+			customer_id
+	`, cp.ProgramName, cp.ProgramCode, cp.IsActive, cp.CustomerID, cp.ProgramID).
+		Scan(&cp.ProgramID, &cp.ProgramName, &cp.ProgramCode, &cp.IsActive, &cp.CustomerID)
+	if err != nil {
+		return CustomerProgram{}, err
+	}
+	return cp, nil
 }

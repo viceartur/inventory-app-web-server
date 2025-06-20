@@ -2,22 +2,27 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"strconv"
 
 	"inv_app/services/email"
+
+	"github.com/gorilla/mux"
 )
 
-func SendEmailHandler(w http.ResponseWriter, r *http.Request) {
+func EmailInventoryReportHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	customerId, _ := strconv.Atoi(vars["customerId"])
+
 	var req email.EmailRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := email.SendEmail(req); err != nil {
-		log.Printf("Error sending email: %v", err)
-		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+	if err := email.EmailInventoryReport(req, customerId); err != nil {
+		http.Error(w, "Failed to send email: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

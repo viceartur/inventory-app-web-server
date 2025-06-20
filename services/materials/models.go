@@ -2,47 +2,27 @@ package materials
 
 import "time"
 
-type IncomingMaterialJSON struct {
-	ShippingId   string `json:"shippingId"`
-	CustomerID   string `json:"customerId"`
-	StockID      string `json:"stockId"`
-	MaterialType string `json:"type"`
-	Qty          string `json:"quantity"`
-	Cost         string `json:"cost"`
-	MinQty       string `json:"minQuantity"`
-	MaxQty       string `json:"maxQuantity"`
-	Description  string `json:"description"`
-	Owner        string `json:"owner"`
-	IsActive     bool   `json:"isActive"`
-	UserID       string `json:"userId"`
-}
-
-type IncomingMaterialDB struct {
-	ShippingID   string  `field:"shipping_id"`
-	CustomerName string  `field:"customer_name"`
-	CustomerID   int     `field:"customer_id"`
-	StockID      string  `field:"stock_id"`
-	Cost         float64 `field:"cost"`
-	Quantity     int     `field:"quantity"`
-	MinQty       int     `field:"min_required_quantity"`
-	MaxQty       int     `field:"max_required_quantity"`
-	Description  string  `field:"description"`
-	IsActive     bool    `field:"is_active"`
-	MaterialType string  `field:"material_type"`
-	Owner        string  `field:"owner"`
-	UserID       int     `field:"user_id"`
-	UserName     string  `field:"username"`
-}
-
 type IncomingMaterial struct {
-	shippingId int
-	qty        int
+	ShippingID   int     `field:"shipping_id" json:"shippingId"`
+	ProgramName  string  `field:"program_name" json:"programName"`
+	ProgramID    int     `field:"program_id" json:"programId"`
+	StockID      string  `field:"stock_id" json:"stockId"`
+	Cost         float32 `field:"cost" json:"cost"`
+	Quantity     int     `field:"quantity" json:"quantity"`
+	MinQty       int     `field:"min_required_quantity" json:"minQuantity"`
+	MaxQty       int     `field:"max_required_quantity" json:"maxQuantity"`
+	Description  string  `field:"description" json:"description"`
+	IsActive     bool    `field:"is_active" json:"isActive"`
+	MaterialType string  `field:"type" json:"materialType"`
+	Owner        string  `field:"owner" json:"owner"`
+	UserID       int     `field:"user_id" json:"userId"`
+	UserName     string  `field:"username" json:"username"`
 }
 
 type MaterialJSON struct {
-	MaterialID        string `json:"materialId"`
-	LocationID        string `json:"locationId"`
-	Qty               string `json:"quantity"`
+	MaterialID        int    `json:"materialId"`
+	LocationID        int    `json:"locationId"`
+	Qty               int    `json:"quantity"`
 	Notes             string `json:"notes"`
 	IsPrimary         *bool  `json:"isPrimary"`
 	SerialNumberRange string `json:"serialNumberRange"`
@@ -62,9 +42,9 @@ type Material struct {
 	MaterialID        int       `field:"material_id" json:"materialId"`
 	WarehouseName     string    `field:"warehouse_name" json:"warehouseName"`
 	StockID           string    `field:"stock_id" json:"stockId"`
-	CustomerID        int       `field:"customer_id" json:"customerId"`
-	CustomerName      string    `field:"customer_name" json:"customerName"`
-	IsActiveCustomer  bool      `field:"is_active_customer" json:"isActiveCustomer"`
+	ProgramID         int       `field:"program_id" json:"programId"`
+	ProgramName       string    `field:"program_name" json:"programName"`
+	IsActiveProgram   bool      `field:"is_active_program" json:"isActiveProgram"`
 	LocationID        int       `field:"location_id" json:"locationId"`
 	LocationName      string    `field:"location_name" json:"locationName"`
 	MaterialType      string    `field:"material_type" json:"materialType"`
@@ -100,7 +80,7 @@ type Transaction struct {
 type MaterialFilter struct {
 	MaterialId   int
 	StockId      string
-	CustomerName string
+	ProgramName  string
 	Description  string
 	LocationName string
 	Status       string
@@ -112,7 +92,7 @@ type Price struct {
 	priceId    int
 	materialId int
 	qty        int
-	cost       float64
+	cost       float32
 }
 
 type PriceToRemove struct {
@@ -128,7 +108,7 @@ type PriceDB struct {
 	PriceID    int     `field:"price_id"`
 	MaterialID int     `field:"material_id"`
 	Qty        int     `field:"quantity"`
-	Cost       float64 `field:"cost"`
+	Cost       float32 `field:"cost"`
 }
 
 type TransactionInfo struct {

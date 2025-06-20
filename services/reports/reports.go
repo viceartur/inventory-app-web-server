@@ -26,7 +26,7 @@ type Transaction struct {
 
 type SearchQuery struct {
 	WarehouseID  int
-	CustomerID   int
+	ProgramID    int
 	StockId      string
 	Owner        string
 	MaterialType string
@@ -87,7 +87,7 @@ type BalanceRep struct {
 }
 
 type WeeklyUsageRep struct {
-	CustomerName   string  `field:"customer_name" json:"customerName"`
+	ProgramName    string  `field:"program_name" json:"programName"`
 	StockID        string  `field:"stock_id" json:"stockId"`
 	MaterialType   string  `field:"material_type" json:"materialType"`
 	QtyOnRefDate   int32   `field:"quantity_on_ref_date" json:"qtyOnRefDate"`
@@ -118,9 +118,9 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 						transactions_log tl
 						LEFT JOIN prices p ON p.price_id = tl.price_id
 						LEFT JOIN materials m ON m.material_id = p.material_id
-						LEFT JOIN customers c ON m.customer_id = c.customer_id
+						LEFT JOIN customer_programs c ON m.program_id = c.program_id
 						WHERE
-							($1 = 0 OR m.customer_id = $1) AND
+							($1 = 0 OR m.program_id = $1) AND
 							($2 = '' OR m.material_type = $2::MATERIAL_TYPE) AND
 							($5 = '' OR m.owner = $5::OWNER) AND
 							($4 = '' OR tl.updated_at < $4::timestamp)
@@ -143,9 +143,9 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 						transactions_log tl
 						LEFT JOIN prices p ON p.price_id = tl.price_id
 						LEFT JOIN materials m ON m.material_id = p.material_id
-						LEFT JOIN customers c ON m.customer_id = c.customer_id
+						LEFT JOIN customer_programs c ON m.program_id = c.program_id
 						WHERE
-						    ($1 = 0 OR m.customer_id = $1) AND
+						    ($1 = 0 OR m.program_id = $1) AND
 						    ($2 = '' OR m.material_type = $2::MATERIAL_TYPE) AND
 						    ($5 = '' OR m.owner = $5::OWNER)
 				)
@@ -177,7 +177,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 				ot.updated_at,
 				ot.transaction_id ASC;
 	`,
-		t.TrxFilter.CustomerID,
+		t.TrxFilter.ProgramID,
 		t.TrxFilter.MaterialType,
 		t.TrxFilter.DateFrom,
 		t.TrxFilter.DateTo,
@@ -239,7 +239,7 @@ func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
 		LEFT JOIN prices p ON p.price_id = tl.price_id
 		LEFT JOIN materials m ON m.material_id = p.material_id
 		WHERE
-			($1 = 0 OR m.customer_id = $1) AND
+			($1 = 0 OR m.program_id = $1) AND
 			($2 = '' OR m.material_type::TEXT = $2) AND
 			($3 = '' OR tl.updated_at::TEXT <= $3) AND
 			($4 = '' OR m.owner::TEXT = $4) AND
@@ -247,7 +247,7 @@ func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
 		GROUP BY m.stock_id, m.description, m.material_type
 		ORDER BY m.material_type ASC, m.description ASC;
 `,
-		b.BlcFilter.CustomerID, b.BlcFilter.MaterialType, b.BlcFilter.DateAsOf, b.BlcFilter.Owner,
+		b.BlcFilter.ProgramID, b.BlcFilter.MaterialType, b.BlcFilter.DateAsOf, b.BlcFilter.Owner,
 	)
 	if err != nil {
 		return []BalanceRep{}, err
@@ -318,7 +318,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 				SELECT
 					m.stock_id,
 					m.material_type,
-					m.customer_id,
+					m.program_id,
 					SUM(m.quantity) - COALESCE(fu.future_quantity_change, 0) AS quantity_on_ref_date
 				FROM
 					materials m
@@ -326,7 +326,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 				GROUP BY
 					m.stock_id,
 					m.material_type,
-					m.customer_id,
+					m.program_id,
 					fu.future_quantity_change
 			),
 			-- Filtered transactions (past 6 weeks)
@@ -369,7 +369,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 			)
 			-- Final output
 		SELECT
-			c.name AS customer_name,
+			c.program_name,
 			mq.stock_id,
 			mq.material_type,
 			mq.quantity_on_ref_date,
@@ -381,21 +381,21 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 		FROM
 			material_quantities mq
 			LEFT JOIN average_usage au ON mq.stock_id = au.stock_id
-			LEFT JOIN customers c ON c.customer_id = mq.customer_id
+			LEFT JOIN customer_programs c ON c.program_id = mq.program_id
 		WHERE
 			mq.quantity_on_ref_date > 0
 			AND au.avg_weekly_usage > 0
-			AND ($2 = 0 OR c.customer_id = $2)
+			AND ($2 = 0 OR c.program_id = $2)
 			AND ($3 = '' OR mq.stock_id = $3)
 			AND ($4 = '' OR mq.material_type::TEXT = $4)
 		ORDER BY
-			c.name,
+			c.program_name,
 			mq.material_type,
 			mq.stock_id;
 
 		`,
 		dateAsOf,
-		w.WeeklyUsgFilter.CustomerID,
+		w.WeeklyUsgFilter.ProgramID,
 		w.WeeklyUsgFilter.StockId,
 		w.WeeklyUsgFilter.MaterialType,
 	)
@@ -409,7 +409,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 		usageTransaction := WeeklyUsageRep{}
 
 		err := rows.Scan(
-			&usageTransaction.CustomerName,
+			&usageTransaction.ProgramName,
 			&usageTransaction.StockID,
 			&usageTransaction.MaterialType,
 			&usageTransaction.QtyOnRefDate,
@@ -421,7 +421,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 		}
 
 		weeklyUsgList = append(weeklyUsgList, WeeklyUsageRep{
-			CustomerName:   usageTransaction.CustomerName,
+			ProgramName:    usageTransaction.ProgramName,
 			StockID:        usageTransaction.StockID,
 			MaterialType:   usageTransaction.MaterialType,
 			QtyOnRefDate:   usageTransaction.QtyOnRefDate,
@@ -449,18 +449,18 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 		LEFT JOIN materials m ON m.material_id = p.material_id
 		LEFT JOIN locations l ON l.location_id = m.location_id
 		LEFT JOIN warehouses w ON w.warehouse_id = l.warehouse_id
-		LEFT JOIN customers c ON m.customer_id = c.customer_id
+		LEFT JOIN customer_programs c ON m.program_id = c.program_id
 		LEFT JOIN material_usage_reasons mus ON mus.reason_id = tl.reason_id
 		WHERE
 			($1 = 0 OR w.warehouse_id = $1) AND
-			($2 = 0 OR m.customer_id = $2) AND
+			($2 = 0 OR m.program_id = $2) AND
 			($3 = '' OR m.material_type::TEXT = $3) AND
 			($4 = '' OR tl.updated_at::TEXT >= $4) AND
 			($5 = '' OR tl.updated_at::TEXT <= $5) AND
 			($6 = '' OR m.owner::TEXT = $6)
 		ORDER BY tl.transaction_id ASC;`,
 		tl.TrxLogFilter.WarehouseID,
-		tl.TrxLogFilter.CustomerID,
+		tl.TrxLogFilter.ProgramID,
 		tl.TrxLogFilter.MaterialType,
 		tl.TrxLogFilter.DateFrom,
 		tl.TrxLogFilter.DateTo,
