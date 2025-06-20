@@ -1,22 +1,40 @@
 CREATE DATABASE tag_db;
 
-DROP TABLE IF EXISTS transactions_log;
+-- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS requested_materials CASCADE;
 
-DROP TABLE IF EXISTS prices;
+DROP TABLE IF EXISTS incoming_materials CASCADE;
 
-DROP TABLE IF EXISTS materials;
+DROP TABLE IF EXISTS transactions_log CASCADE;
 
-DROP TABLE IF EXISTS incoming_materials;
+DROP TABLE IF EXISTS prices CASCADE;
 
-DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS material_usage_reasons CASCADE;
 
-DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS materials CASCADE;
 
-DROP TABLE IF EXISTS warehouses;
+DROP TABLE IF EXISTS customer_emails CASCADE;
 
-DROP TYPE IF EXISTS material_type;
+DROP TABLE IF EXISTS customer_programs CASCADE;
 
-DROP TYPE IF EXISTS owner;
+DROP TABLE IF EXISTS locations CASCADE;
+
+DROP TABLE IF EXISTS warehouses CASCADE;
+
+DROP TABLE IF EXISTS customers CASCADE;
+
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Drop types after all dependent tables are dropped
+DROP TYPE IF EXISTS REQUEST_STATUS;
+
+DROP TYPE IF EXISTS ROLE;
+
+DROP TYPE IF EXISTS OWNER;
+
+DROP TYPE IF EXISTS MATERIAL_TYPE;
+
+DROP TYPE IF EXISTS REASON_TYPE;
 
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
