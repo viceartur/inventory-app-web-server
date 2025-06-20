@@ -2,7 +2,6 @@ package import_data
 
 import (
 	"database/sql"
-	"log"
 	"strconv"
 )
 
@@ -89,7 +88,6 @@ func ImportDataToDB(db *sql.DB, data ImportJSON) (ImportResponse, error) {
 		}
 
 		if importData.StockID == "" {
-			log.Println(importData)
 			importData.ERR_REASON = "No Stock ID provided"
 			notImportedData = append(notImportedData, importData)
 			continue

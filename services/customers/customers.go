@@ -3,7 +3,6 @@ package customers
 import (
 	"context"
 	"database/sql"
-	"log"
 )
 
 type Customer struct {
@@ -26,7 +25,6 @@ type CustomerProgram struct {
 /* Customers CRUD */
 
 func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
-	log.Println("custgomer", customer)
 	tx, err := db.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return Customer{}, err
@@ -81,7 +79,6 @@ func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
 }
 
 func GetCustomer(db *sql.DB, customerId int) (Customer, error) {
-	log.Println("sss")
 	var c Customer
 	var username sql.NullString
 	err := db.QueryRow(`
