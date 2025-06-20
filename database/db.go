@@ -29,12 +29,10 @@ func ConnectToDB() (*sql.DB, error) {
 
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Println("connectoToDB1", err)
 		return nil, errors.New(err.Error())
 	}
 
 	if err = db.Ping(); err != nil {
-		log.Println("connectoToDB2", err)
 		return nil, errors.New(err.Error())
 	}
 
