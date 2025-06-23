@@ -16,16 +16,13 @@ func EmailInventoryReportHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req email.EmailRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	if err := email.EmailInventoryReport(req, customerId); err != nil {
-		http.Error(w, "Failed to send email: "+err.Error(), http.StatusInternalServerError)
+		errRes := ErrorResponse{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Email sent successfully"})
+	res := SuccessResponse{Message: "Email sent successfully."}
+	json.NewEncoder(w).Encode(res)
 }

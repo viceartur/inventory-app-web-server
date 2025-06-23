@@ -20,6 +20,6 @@ func ImportData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	response := SuccessResponseJSON{Message: "Data Imported to the DB", Data: importRes}
+	response := SuccessResponse{Message: "Data Imported to the DB", Data: importRes}
 	json.NewEncoder(w).Encode(response)
 }

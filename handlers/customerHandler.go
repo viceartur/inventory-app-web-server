@@ -18,12 +18,12 @@ func CreateCustomerHandler(w http.ResponseWriter, r *http.Request) {
 	createdCustomer, err := customers.CreateCustomer(db, customer)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Customer created.", Data: createdCustomer}
+	res := SuccessResponse{Message: "Customer created.", Data: createdCustomer}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -33,7 +33,7 @@ func GetCustomersHandler(w http.ResponseWriter, r *http.Request) {
 	customers, err := customers.GetCustomers(db)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return
@@ -51,7 +51,7 @@ func GetCustomerHandler(w http.ResponseWriter, r *http.Request) {
 	customer, err := customers.GetCustomer(db, customerId)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return
@@ -74,12 +74,12 @@ func UpdateCustomerHandler(w http.ResponseWriter, r *http.Request) {
 	updatedCustomer, err := customers.UpdateCustomer(db, customer)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Customer updated.", Data: updatedCustomer}
+	res := SuccessResponse{Message: "Customer updated.", Data: updatedCustomer}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -91,12 +91,12 @@ func CreateCustomerProgramHandler(w http.ResponseWriter, r *http.Request) {
 	createdCustomer, err := customers.CreateCustomerProgram(db, customerProgram)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Customer Program created.", Data: createdCustomer}
+	res := SuccessResponse{Message: "Customer Program created.", Data: createdCustomer}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -106,7 +106,7 @@ func GetCustomerProgramsHandler(w http.ResponseWriter, r *http.Request) {
 	programs, err := customers.GetCustomerPrograms(db)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return
@@ -124,7 +124,7 @@ func GetCustomerProgramHandler(w http.ResponseWriter, r *http.Request) {
 	programs, err := customers.GetCustomerProgram(db, programId)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return
@@ -147,11 +147,11 @@ func UpdateCustomerProgramHandler(w http.ResponseWriter, r *http.Request) {
 	updatedProgram, err := customers.UpdateCustomerProgram(db, customer)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Customer Program updated.", Data: updatedProgram}
+	res := SuccessResponse{Message: "Customer Program updated.", Data: updatedProgram}
 	json.NewEncoder(w).Encode(res)
 }

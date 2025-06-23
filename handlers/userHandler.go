@@ -16,12 +16,12 @@ func AuthUsersHandler(w http.ResponseWriter, r *http.Request) {
 	authUser, err := users.AuthUser(db, user)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusUnauthorized)
 		return
 	}
-	res := SuccessResponseJSON{Message: "User authenticated", Data: authUser}
+	res := SuccessResponse{Message: "User authenticated", Data: authUser}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -33,11 +33,11 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := users.CreateUser(db, user)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusBadRequest)
 		return
 	}
-	res := SuccessResponseJSON{Message: "User created", Data: user}
+	res := SuccessResponse{Message: "User created", Data: user}
 	json.NewEncoder(w).Encode(res)
 }

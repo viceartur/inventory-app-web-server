@@ -16,13 +16,13 @@ func CreateWarehouseHandler(w http.ResponseWriter, r *http.Request) {
 	err := warehouses.CreateWarehouse(warehouse, db)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponseJSON{Message: "Warehouse and Location pair created."})
+	json.NewEncoder(w).Encode(SuccessResponse{Message: "Warehouse and Location pair created."})
 }
 
 func GetWarehouseHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func GetWarehouseHandler(w http.ResponseWriter, r *http.Request) {
 	warehouses, err := warehouses.FetchWarehouses(db)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return

@@ -12,7 +12,7 @@ type IncomingMaterial struct {
 	MinQty       int     `field:"min_required_quantity" json:"minQuantity"`
 	MaxQty       int     `field:"max_required_quantity" json:"maxQuantity"`
 	Description  string  `field:"description" json:"description"`
-	IsActive     bool    `field:"is_active" json:"isActive"`
+	IsActive     bool    `field:"is_active" json:"isActiveMaterial"`
 	MaterialType string  `field:"type" json:"materialType"`
 	Owner        string  `field:"owner" json:"owner"`
 	UserID       int     `field:"user_id" json:"userId"`

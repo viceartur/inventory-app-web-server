@@ -71,7 +71,7 @@ func main() {
 
 	// router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST") // temporarily off
 
-	router.HandleFunc("/email_inventory_report/{atlasName}", routeHandlers.EmailInventoryReportHandler).Methods("POST")
+	router.HandleFunc("/email_inventory_report/{customerId]}", routeHandlers.EmailInventoryReportHandler).Methods("POST")
 
 	// Env loading
 	err := godotenv.Load(".env")

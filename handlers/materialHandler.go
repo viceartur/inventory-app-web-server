@@ -72,12 +72,12 @@ func UpdateIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.UpdateIncomingMaterial(db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Requested Material Updated"}
+	res := SuccessResponse{Message: "Requested Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -93,12 +93,12 @@ func DeleteIncomingMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.DeleteIncomingMaterial(ctx, db, shippingId)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Incoming Material Deleted"}
+	res := SuccessResponse{Message: "Incoming Material Deleted"}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -113,12 +113,12 @@ func CreateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	materialId, err := materials.CreateMaterial(ctx, db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material ID created", Data: materialId}
+	res := SuccessResponse{Message: "Material ID created", Data: materialId}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -179,12 +179,12 @@ func UpdateMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.UpdateMaterial(ctx, db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusNotFound)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material Updated"}
+	res := SuccessResponse{Message: "Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -198,12 +198,12 @@ func MoveMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.MoveMaterial(ctx, db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material Moved", Data: material}
+	res := SuccessResponse{Message: "Material Moved", Data: material}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -217,12 +217,12 @@ func RemoveMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.RemoveMaterial(ctx, db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material Quantity Removed", Data: material}
+	res := SuccessResponse{Message: "Material Quantity Removed", Data: material}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -236,12 +236,12 @@ func RequestMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.RequestMaterials(ctx, db, materialsData)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Materials requested"}
+	res := SuccessResponse{Message: "Materials requested"}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -263,12 +263,12 @@ func GetRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	materials, err := materials.GetRequestedMaterials(db, filterOpts)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Requested Materials List", Data: materials}
+	res := SuccessResponse{Message: "Requested Materials List", Data: materials}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -281,12 +281,12 @@ func UpdateRequestedMaterialHandler(w http.ResponseWriter, r *http.Request) {
 	err := materials.UpdateRequestedMaterial(db, material)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Requested Material Updated"}
+	res := SuccessResponse{Message: "Requested Material Updated"}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -298,12 +298,12 @@ func GetMaterialDescriptionHandler(w http.ResponseWriter, r *http.Request) {
 	description, err := materials.GetMaterialDescription(db, stockId)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material Description Requested", Data: description}
+	res := SuccessResponse{Message: "Material Description Requested", Data: description}
 	json.NewEncoder(w).Encode(res)
 }
 
@@ -315,11 +315,11 @@ func GetMaterialTransactionsHandler(w http.ResponseWriter, r *http.Request) {
 	transactions, err := materials.GetMaterialTransactions(db, jobTicket)
 
 	if err != nil {
-		errRes := ErrorResponseJSON{Message: err.Error()}
+		errRes := ErrorResponse{Message: err.Error()}
 		res, _ := json.Marshal(errRes)
 		http.Error(w, string(res), http.StatusConflict)
 		return
 	}
-	res := SuccessResponseJSON{Message: "Material Transactions Requested", Data: transactions}
+	res := SuccessResponse{Message: "Material Transactions Requested", Data: transactions}
 	json.NewEncoder(w).Encode(res)
 }

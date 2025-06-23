@@ -1,10 +1,10 @@
 package handlers
 
-type SuccessResponseJSON struct {
+type SuccessResponse struct {
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
 
-type ErrorResponseJSON struct {
+type ErrorResponse struct {
 	Message string `json:"message"`
 }
