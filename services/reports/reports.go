@@ -25,6 +25,7 @@ type Transaction struct {
 }
 
 type SearchQuery struct {
+	CustomerID   int
 	WarehouseID  int
 	ProgramID    int
 	StockId      string
@@ -62,6 +63,11 @@ type TransactionLogReport struct {
 type VaultReport struct {
 	Report
 	// no filters yet
+}
+
+type CustomerUsageReport struct {
+	Report
+	CustomerUsageFilter SearchQuery
 }
 
 type TransactionRep struct {
@@ -600,4 +606,247 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 	}
 
 	return vaultReport, nil
+}
+
+func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
+	dateFrom := c.CustomerUsageFilter.DateFrom
+	dateTo := c.CustomerUsageFilter.DateTo
+	customerId := c.CustomerUsageFilter.CustomerID
+
+	if dateFrom == "" {
+		dateFrom = time.Now().AddDate(0, -1, 0).Format("2006-01-02") // default to 1 month ago
+	}
+	if dateTo == "" {
+		dateTo = time.Now().Format("2006-01-02")
+	}
+
+	rows, err := c.DB.Query(`
+		-- Reference dates
+		WITH
+			constants AS (
+				SELECT
+					$1::DATE AS ref_start,
+					$2::DATE AS ref_end,
+					$3 AS target_customer_id
+			),
+			-- Starting quantity before the period
+			starting_qty AS (
+				SELECT
+					m.stock_id,
+					COALESCE(SUM(tl.quantity_change), 0) AS qty_start
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at < const.ref_start
+					AND c.customer_id = const.target_customer_id
+				GROUP BY
+					m.stock_id
+			),
+			-- Received (+) during the period
+			received AS (
+				SELECT
+					m.stock_id,
+					COALESCE(SUM(tl.quantity_change), 0) AS qty_received
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at BETWEEN const.ref_start AND const.ref_end
+					AND tl.quantity_change > 0
+					AND tl.notes NOT ILIKE 'moved from%'
+					AND c.customer_id = const.target_customer_id
+				GROUP BY
+					m.stock_id
+			),
+			-- Used (-) with NULL reason_id
+			used AS (
+				SELECT
+					m.stock_id,
+					ABS(SUM(tl.quantity_change)) AS qty_used
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at BETWEEN const.ref_start AND const.ref_end
+					AND tl.quantity_change < 0
+					AND tl.reason_id IS NULL
+					AND tl.notes NOT ILIKE 'moved to%'
+					AND c.customer_id = const.target_customer_id
+				GROUP BY
+					m.stock_id
+			),
+			-- Spoiled (-) with NOT NULL reason_id
+			spoiled AS (
+				SELECT
+					m.stock_id,
+					ABS(SUM(tl.quantity_change)) AS qty_spoiled
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at BETWEEN const.ref_start AND const.ref_end
+					AND tl.quantity_change < 0
+					AND tl.reason_id IS NOT NULL
+					AND c.customer_id = const.target_customer_id
+				GROUP BY
+					m.stock_id
+			),
+			-- Ending quantity (till ref_end)
+			ending_qty AS (
+				SELECT
+					m.stock_id,
+					COALESCE(SUM(tl.quantity_change), 0) AS qty_end
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at <= const.ref_end
+					AND c.customer_id = const.target_customer_id
+				GROUP BY
+					m.stock_id
+			),
+			-- Filtered transactions for avg 6 weeks usage
+			filtered_transactions AS (
+				SELECT
+					tl.*,
+					m.stock_id
+				FROM
+					materials m
+					LEFT JOIN prices p ON p.material_id = m.material_id
+					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
+					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					JOIN constants const ON TRUE
+				WHERE
+					tl.updated_at BETWEEN (const.ref_end - INTERVAL '6 weeks') AND const.ref_end
+					AND c.customer_id = const.target_customer_id
+			),
+			-- Group by week
+			weekly_usage AS (
+				SELECT
+					stock_id,
+					DATE_TRUNC ('week', updated_at) AS week_start,
+					SUM(quantity_change) AS total_used
+				FROM
+					filtered_transactions
+				WHERE
+					quantity_change < 0
+					AND notes NOT ILIKE 'moved from%'
+				GROUP BY
+					stock_id,
+					week_start
+			),
+			-- Average 6 weeks usage
+			average_usage AS (
+				SELECT
+					stock_id,
+					ABS(AVG(total_used)) AS avg_weekly_usage
+				FROM
+					weekly_usage
+				GROUP BY
+					stock_id
+			)
+			-- Final report
+		SELECT
+			cp.program_name,
+			m.material_type,
+			m.stock_id,
+			COALESCE(sq.qty_start, 0) AS qty_start,
+			COALESCE(r.qty_received, 0) AS qty_received,
+			COALESCE(u.qty_used, 0) AS qty_used,
+			COALESCE(s.qty_spoiled, 0) AS qty_spoiled,
+			COALESCE(eq.qty_end, 0) AS qty_end,
+			COALESCE(ROUND(au.avg_weekly_usage, 2), 0) AS six_week_avg_to_ref_end,
+			CASE
+				WHEN au.avg_weekly_usage = 0 THEN NULL
+				ELSE ROUND(COALESCE(eq.qty_end, 0) / au.avg_weekly_usage, 2)
+			END AS weeks_remaining
+		FROM
+			materials m
+			LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+			LEFT JOIN customers c ON c.customer_id = cp.customer_id
+			JOIN constants const ON TRUE
+			LEFT JOIN starting_qty sq ON sq.stock_id = m.stock_id
+			LEFT JOIN received r ON r.stock_id = m.stock_id
+			LEFT JOIN used u ON u.stock_id = m.stock_id
+			LEFT JOIN spoiled s ON s.stock_id = m.stock_id
+			LEFT JOIN ending_qty eq ON eq.stock_id = m.stock_id
+			LEFT JOIN average_usage au ON au.stock_id = m.stock_id
+		WHERE
+			c.customer_id = const.target_customer_id
+		GROUP BY
+			cp.program_name,
+			m.stock_id,
+			m.material_type,
+			sq.qty_start,
+			r.qty_received,
+			u.qty_used,
+			s.qty_spoiled,
+			eq.qty_end,
+			au.avg_weekly_usage
+		ORDER BY
+			cp.program_name,
+			m.material_type,
+			m.stock_id;
+	`,
+		dateFrom,
+		dateTo,
+		customerId,
+	)
+	if err != nil {
+		return []WeeklyUsageRep{}, err
+	}
+
+	reportList := []WeeklyUsageRep{}
+
+	for rows.Next() {
+		var stockID string
+		var qtyStart, qtyReceived, qtyUsed, qtySpoiled, qtyEnd int32
+		var avgWeeklyUsage, weeksRemaining float32
+
+		err := rows.Scan(
+			&stockID,
+			&qtyStart,
+			&qtyReceived,
+			&qtyUsed,
+			&qtySpoiled,
+			&qtyEnd,
+			&avgWeeklyUsage,
+			&weeksRemaining,
+		)
+		if err != nil {
+			return []WeeklyUsageRep{}, err
+		}
+
+		reportList = append(reportList, WeeklyUsageRep{
+			StockID:        stockID,
+			QtyOnRefDate:   qtyStart,
+			AvgWeeklyUsg:   avgWeeklyUsage,
+			WeeksRemaining: weeksRemaining,
+			// You can extend WeeklyUsageRep or create a new struct to include qtyReceived, qtyUsed, qtySpoiled, qtyEnd if needed
+		})
+	}
+
+	return reportList, nil
 }
