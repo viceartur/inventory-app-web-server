@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"inv_app/database"
 	"inv_app/services/reports"
 	"net/http"
@@ -19,14 +20,15 @@ func GetTransactionsReport(w http.ResponseWriter, r *http.Request) {
 	dateFrom := r.URL.Query().Get("dateFrom")
 	dateTo := r.URL.Query().Get("dateTo")
 
-	trxRep := reports.TransactionReport{Report: reports.Report{DB: db}, TrxFilter: reports.SearchQuery{
+	report := reports.Report{DB: db, TrxFilter: reports.SearchQuery{
 		ProgramID:    customerId,
 		Owner:        owner,
 		MaterialType: materialType,
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
 	}}
-	trxReport, err := trxRep.GetReportList()
+
+	trxReport, err := report.GetTransactions()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -45,13 +47,13 @@ func GetBalanceReport(w http.ResponseWriter, r *http.Request) {
 	materialType := r.URL.Query().Get("materialType")
 	dateAsOf := r.URL.Query().Get("dateAsOf")
 
-	balanceRep := reports.BalanceReport{Report: reports.Report{DB: db}, BlcFilter: reports.SearchQuery{
+	report := reports.Report{DB: db, BlcFilter: reports.SearchQuery{
 		ProgramID:    customerId,
 		Owner:        owner,
 		MaterialType: materialType,
 		DateAsOf:     dateAsOf,
 	}}
-	balanceReport, err := balanceRep.GetReportList()
+	balanceReport, err := report.GetBalance()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -70,8 +72,8 @@ func GetWeeklyUsageReport(w http.ResponseWriter, r *http.Request) {
 	materialType := r.URL.Query().Get("materialType")
 	dateAsOf := r.URL.Query().Get("dateAsOf")
 
-	weeklyUsgRep := reports.WeeklyUsageReport{
-		Report: reports.Report{DB: db},
+	report := reports.Report{
+		DB: db,
 		WeeklyUsgFilter: reports.SearchQuery{
 			ProgramID:    customerId,
 			StockId:      stockId,
@@ -79,7 +81,7 @@ func GetWeeklyUsageReport(w http.ResponseWriter, r *http.Request) {
 			DateAsOf:     dateAsOf,
 		}}
 
-	weeklyUsageReport, err := weeklyUsgRep.GetReportList()
+	weeklyUsageReport, err := report.GetWeeklyUsage()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -101,7 +103,7 @@ func GetTransactionsLogReport(w http.ResponseWriter, r *http.Request) {
 	dateFrom := r.URL.Query().Get("dateFrom")
 	dateTo := r.URL.Query().Get("dateTo")
 
-	trxLogRep := reports.TransactionLogReport{Report: reports.Report{DB: db}, TrxLogFilter: reports.SearchQuery{
+	report := reports.Report{DB: db, TrxLogFilter: reports.SearchQuery{
 		WarehouseID:  warehouseId,
 		ProgramID:    customerId,
 		Owner:        owner,
@@ -109,7 +111,7 @@ func GetTransactionsLogReport(w http.ResponseWriter, r *http.Request) {
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
 	}}
-	trxLogReport, err := trxLogRep.GetReportList()
+	trxLogReport, err := report.GetTransactionsLog()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -122,12 +124,47 @@ func GetVaultReport(w http.ResponseWriter, r *http.Request) {
 	db, _ := database.ConnectToDB()
 	defer db.Close()
 
-	vaultRep := reports.VaultReport{Report: reports.Report{DB: db}}
-	vaultReport, err := vaultRep.GetReportList()
+	report := reports.Report{DB: db}
+	vaultReport, err := report.GetVault()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	json.NewEncoder(w).Encode(vaultReport)
+}
+
+func GetCustomerUsageReport(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	customerIdStr := r.URL.Query().Get("customerId")
+	customerId, _ := strconv.Atoi(customerIdStr)
+	dateFrom := r.URL.Query().Get("dateFrom")
+	dateTo := r.URL.Query().Get("dateTo")
+
+	report := reports.Report{DB: db, CustomerUsageFilter: reports.SearchQuery{
+		DateFrom:   dateFrom,
+		DateTo:     dateTo,
+		CustomerID: customerId,
+	}}
+
+	customerUsgReport, err := report.GetCustomerUsage()
+
+	if err != nil {
+		errRes := ErrorResponse{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponse{
+		Message: fmt.Sprintf(
+			"Customer Usage Report for the period from %s to %s. Customer ID: %s.",
+			dateFrom,
+			dateTo,
+			customerIdStr,
+		),
+		Data: customerUsgReport,
+	}
+	json.NewEncoder(w).Encode(res)
 }

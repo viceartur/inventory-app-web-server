@@ -2,117 +2,25 @@ package reports
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/leekchan/accounting"
 )
 
-type Transaction struct {
-	StockID           string    `field:"stock_id"`
-	Description       string    `field:"description"`
-	LocationName      string    `field:"location_name"`
-	MaterialType      string    `field:"material_type"`
-	Qty               int       `field:"quantity"`
-	UnitCost          float64   `field:"unit_cost"`
-	Cost              float64   `field:"cost"`
-	UpdatedAt         time.Time `field:"updated_at"`
-	TotalValue        float64   `field:"total_value"`
-	SerialNumberRange string    `field:"serial_number_range"`
-	JobTicket         string    `field:"job_ticket"`
-	ReasonDescription string    `field:"reason_description"`
-	CumulativeQty     int       `field:"cumulative_quantity"`
-}
-
-type SearchQuery struct {
-	CustomerID   int
-	WarehouseID  int
-	ProgramID    int
-	StockId      string
-	Owner        string
-	MaterialType string
-	DateFrom     string
-	DateTo       string
-	DateAsOf     string
-}
-
 type Report struct {
-	DB *sql.DB
-}
-
-type TransactionReport struct {
-	Report
-	TrxFilter SearchQuery
-}
-
-type BalanceReport struct {
-	Report
-	BlcFilter SearchQuery
-}
-
-type WeeklyUsageReport struct {
-	Report
-	WeeklyUsgFilter SearchQuery
-}
-
-type TransactionLogReport struct {
-	Report
-	TrxLogFilter SearchQuery
-}
-
-type VaultReport struct {
-	Report
-	// no filters yet
-}
-
-type CustomerUsageReport struct {
-	Report
+	DB                  *sql.DB
+	TrxFilter           SearchQuery
+	BlcFilter           SearchQuery
+	WeeklyUsgFilter     SearchQuery
+	TrxLogFilter        SearchQuery
 	CustomerUsageFilter SearchQuery
-}
-
-type TransactionRep struct {
-	StockID           string
-	LocationName      string
-	MaterialType      string
-	Qty               string
-	UnitCost          string
-	Cost              string
-	Date              string
-	SerialNumberRange string
-	JobTicket         string
-	ReasonDescription string
-	CumulativeQty     string
-}
-
-type BalanceRep struct {
-	StockID      string
-	Description  string
-	MaterialType string
-	Qty          string
-	TotalValue   string
-}
-
-type WeeklyUsageRep struct {
-	ProgramName    string  `field:"program_name" json:"programName"`
-	StockID        string  `field:"stock_id" json:"stockId"`
-	MaterialType   string  `field:"material_type" json:"materialType"`
-	QtyOnRefDate   int32   `field:"quantity_on_ref_date" json:"qtyOnRefDate"`
-	AvgWeeklyUsg   float32 `field:"avg_weekly_usage" json:"avgWeeklyUsg"`
-	WeeksRemaining float32 `field:"weeks_of_stock_remaining" json:"weeksRemaining"`
-}
-
-type VaultRep struct {
-	InnerLocation string `field:"inner_location" json:"innerLocation"`
-	OuterLocation string `field:"outer_location" json:"outerLocation"`
-	StockID       string `field:"stock_id" json:"stockId"`
-	InnerVaultQty int    `field:"inner_vault_quantity" json:"innerVaultQty"`
-	OuterVaultQty int    `field:"outer_vault_quantity" json:"outerVaultQty"`
-	TotalQty      int    `field:"total_quantity" json:"totalQty"`
 }
 
 var accLib accounting.Accounting = accounting.Accounting{Symbol: "$", Precision: 4}
 
-func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
+func (t *Report) GetTransactions() ([]TransactionRep, error) {
 	rows, err := t.DB.Query(`
 			WITH
 				-- Compute starting quantity before the 'from' date for each stock
@@ -234,7 +142,7 @@ func (t TransactionReport) GetReportList() ([]TransactionRep, error) {
 	return trxList, nil
 }
 
-func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
+func (b *Report) GetBalance() ([]BalanceRep, error) {
 	rows, err := b.DB.Query(`
 		SELECT m.stock_id,
 			m.description,
@@ -292,7 +200,7 @@ func (b BalanceReport) GetReportList() ([]BalanceRep, error) {
 // Generates a weekly usage report based on the provided filters in the WeeklyUsageReport struct.
 // It calculates the quantity of materials on a reference date, their average weekly usage over the past 6 weeks,
 // and the estimated number of weeks of stock remaining.
-func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
+func (w *Report) GetWeeklyUsage() ([]WeeklyUsageRep, error) {
 	// Use today's date if dateAsOf is not provided
 	dateAsOf := w.WeeklyUsgFilter.DateAsOf
 	if dateAsOf == "" {
@@ -439,7 +347,7 @@ func (w WeeklyUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 	return weeklyUsgList, err
 }
 
-func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
+func (tl *Report) GetTransactionsLog() ([]TransactionRep, error) {
 	rows, err := tl.DB.Query(`
 		SELECT
 			m.stock_id,
@@ -515,7 +423,7 @@ func (tl TransactionLogReport) GetReportList() ([]TransactionRep, error) {
 	return trxList, nil
 }
 
-func (vr VaultReport) GetReportList() ([]VaultRep, error) {
+func (vr *Report) GetVault() ([]VaultRep, error) {
 	rows, err := vr.DB.Query(`
 		WITH
 			inner_vault AS (
@@ -608,28 +516,27 @@ func (vr VaultReport) GetReportList() ([]VaultRep, error) {
 	return vaultReport, nil
 }
 
-func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
+// GetReportList generates a customer usage report based on the provided filter criteria.
+// It calculates starting quantity, received, used, spoiled, ending quantity, and average weekly usage
+// for each material, grouped by program and material type, within the specified date range.
+// If no date range is provided, it defaults to the last week (Sunday to Saturday).
+// If a customer ID is specified, the report is filtered for that customer.
+func (c *Report) GetCustomerUsage() ([]CustomerUsageRep, error) {
+	customerId := c.CustomerUsageFilter.CustomerID
 	dateFrom := c.CustomerUsageFilter.DateFrom
 	dateTo := c.CustomerUsageFilter.DateTo
-	customerId := c.CustomerUsageFilter.CustomerID
 
-	if dateFrom == "" {
-		dateFrom = time.Now().AddDate(0, -1, 0).Format("2006-01-02") // default to 1 month ago
-	}
-	if dateTo == "" {
-		dateTo = time.Now().Format("2006-01-02")
+	if dateFrom == "" || dateTo == "" {
+		return nil, fmt.Errorf("No period specified.")
 	}
 
-	rows, err := c.DB.Query(`
-		-- Reference dates
+	baseQuery := `
 		WITH
 			constants AS (
 				SELECT
 					$1::DATE AS ref_start,
-					$2::DATE AS ref_end,
-					$3 AS target_customer_id
+					$2::DATE AS ref_end
 			),
-			-- Starting quantity before the period
 			starting_qty AS (
 				SELECT
 					m.stock_id,
@@ -639,15 +546,14 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at < const.ref_start
-					AND c.customer_id = const.target_customer_id
+					%s
 				GROUP BY
 					m.stock_id
 			),
-			-- Received (+) during the period
 			received AS (
 				SELECT
 					m.stock_id,
@@ -657,17 +563,16 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at BETWEEN const.ref_start AND const.ref_end
 					AND tl.quantity_change > 0
-					AND tl.notes NOT ILIKE 'moved from%'
-					AND c.customer_id = const.target_customer_id
+					AND tl.notes NOT ILIKE 'moved from%%'
+					%s
 				GROUP BY
 					m.stock_id
 			),
-			-- Used (-) with NULL reason_id
 			used AS (
 				SELECT
 					m.stock_id,
@@ -677,18 +582,17 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at BETWEEN const.ref_start AND const.ref_end
 					AND tl.quantity_change < 0
 					AND tl.reason_id IS NULL
-					AND tl.notes NOT ILIKE 'moved to%'
-					AND c.customer_id = const.target_customer_id
+					AND tl.notes NOT ILIKE 'moved to%%'
+					%s
 				GROUP BY
 					m.stock_id
 			),
-			-- Spoiled (-) with NOT NULL reason_id
 			spoiled AS (
 				SELECT
 					m.stock_id,
@@ -698,17 +602,16 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at BETWEEN const.ref_start AND const.ref_end
 					AND tl.quantity_change < 0
 					AND tl.reason_id IS NOT NULL
-					AND c.customer_id = const.target_customer_id
+					%s
 				GROUP BY
 					m.stock_id
 			),
-			-- Ending quantity (till ref_end)
 			ending_qty AS (
 				SELECT
 					m.stock_id,
@@ -718,15 +621,14 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at <= const.ref_end
-					AND c.customer_id = const.target_customer_id
+					%s
 				GROUP BY
 					m.stock_id
 			),
-			-- Filtered transactions for avg 6 weeks usage
 			filtered_transactions AS (
 				SELECT
 					tl.*,
@@ -736,13 +638,12 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					LEFT JOIN prices p ON p.material_id = m.material_id
 					LEFT JOIN transactions_log tl ON tl.price_id = p.price_id
 					LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
-					LEFT JOIN customers c ON c.customer_id = cp.customer_id
+					%s
 					JOIN constants const ON TRUE
 				WHERE
 					tl.updated_at BETWEEN (const.ref_end - INTERVAL '6 weeks') AND const.ref_end
-					AND c.customer_id = const.target_customer_id
+					%s
 			),
-			-- Group by week
 			weekly_usage AS (
 				SELECT
 					stock_id,
@@ -752,12 +653,11 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 					filtered_transactions
 				WHERE
 					quantity_change < 0
-					AND notes NOT ILIKE 'moved from%'
+					AND notes NOT ILIKE 'moved from%%'
 				GROUP BY
 					stock_id,
 					week_start
 			),
-			-- Average 6 weeks usage
 			average_usage AS (
 				SELECT
 					stock_id,
@@ -767,8 +667,8 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 				GROUP BY
 					stock_id
 			)
-			-- Final report
 		SELECT
+			c.customer_id,
 			cp.program_name,
 			m.material_type,
 			m.stock_id,
@@ -793,9 +693,10 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 			LEFT JOIN spoiled s ON s.stock_id = m.stock_id
 			LEFT JOIN ending_qty eq ON eq.stock_id = m.stock_id
 			LEFT JOIN average_usage au ON au.stock_id = m.stock_id
-		WHERE
-			c.customer_id = const.target_customer_id
+		WHERE c.is_connected_to_reports = true
+		%s
 		GROUP BY
+			c.customer_id,
 			cp.program_name,
 			m.stock_id,
 			m.material_type,
@@ -806,46 +707,81 @@ func (c CustomerUsageReport) GetReportList() ([]WeeklyUsageRep, error) {
 			eq.qty_end,
 			au.avg_weekly_usage
 		ORDER BY
+			c.customer_name,
 			cp.program_name,
 			m.material_type,
 			m.stock_id;
-	`,
-		dateFrom,
-		dateTo,
-		customerId,
-	)
-	if err != nil {
-		return []WeeklyUsageRep{}, err
+	`
+
+	var joinCustomer, whereCustomer string
+	if customerId > 0 {
+		joinCustomer = "LEFT JOIN customers c ON c.customer_id = cp.customer_id"
+		whereCustomer = "AND c.customer_id = $3"
 	}
 
-	reportList := []WeeklyUsageRep{}
+	// Fill all join/where placeholders for each CTE and main query
+	query := fmt.Sprintf(
+		baseQuery,
+		joinCustomer, whereCustomer, // starting_qty
+		joinCustomer, whereCustomer, // received
+		joinCustomer, whereCustomer, // used
+		joinCustomer, whereCustomer, // spoiled
+		joinCustomer, whereCustomer, // ending_qty
+		joinCustomer, whereCustomer, // filtered_transactions
+		whereCustomer, // main WHERE
+	)
+
+	var rows *sql.Rows
+	var err error
+	if customerId > 0 {
+		rows, err = c.DB.Query(query, dateFrom, dateTo, customerId)
+	} else {
+		rows, err = c.DB.Query(query, dateFrom, dateTo)
+	}
+
+	if err != nil {
+		return []CustomerUsageRep{}, err
+	}
+
+	reportList := []CustomerUsageRep{}
 
 	for rows.Next() {
-		var stockID string
-		var qtyStart, qtyReceived, qtyUsed, qtySpoiled, qtyEnd int32
-		var avgWeeklyUsage, weeksRemaining float32
+		var reportRow CustomerUsageRep
+		var customerID sql.NullInt64
+		var weeksRemaining sql.NullFloat64
 
 		err := rows.Scan(
-			&stockID,
-			&qtyStart,
-			&qtyReceived,
-			&qtyUsed,
-			&qtySpoiled,
-			&qtyEnd,
-			&avgWeeklyUsage,
+			&customerID,
+			&reportRow.ProgramName,
+			&reportRow.MaterialType,
+			&reportRow.StockID,
+			&reportRow.QtyStart,
+			&reportRow.QtyReceived,
+			&reportRow.QtyUsed,
+			&reportRow.QtySpoiled,
+			&reportRow.QtyEnd,
+			&reportRow.WeekAvg,
 			&weeksRemaining,
 		)
 		if err != nil {
-			return []WeeklyUsageRep{}, err
+			return []CustomerUsageRep{}, err
 		}
 
-		reportList = append(reportList, WeeklyUsageRep{
-			StockID:        stockID,
-			QtyOnRefDate:   qtyStart,
-			AvgWeeklyUsg:   avgWeeklyUsage,
-			WeeksRemaining: weeksRemaining,
-			// You can extend WeeklyUsageRep or create a new struct to include qtyReceived, qtyUsed, qtySpoiled, qtyEnd if needed
-		})
+		// Check for NULL customer id
+		if customerID.Valid {
+			reportRow.CustomerID = int(customerID.Int64)
+		} else {
+			reportRow.CustomerID = 0
+		}
+
+		// Check for NULL weeks remaining
+		if weeksRemaining.Valid {
+			reportRow.WeeksRemaining = float32(weeksRemaining.Float64)
+		} else {
+			reportRow.WeeksRemaining = 0
+		}
+
+		reportList = append(reportList, reportRow)
 	}
 
 	return reportList, nil

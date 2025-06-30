@@ -68,10 +68,12 @@ func main() {
 	router.HandleFunc("/reports/weekly_usage", routeHandlers.GetWeeklyUsageReport).Methods("GET")
 	router.HandleFunc("/reports/transactions_log", routeHandlers.GetTransactionsLogReport).Methods("GET")
 	router.HandleFunc("/reports/vault", routeHandlers.GetVaultReport).Methods("GET")
+	router.HandleFunc("/reports/customer_usage", routeHandlers.GetCustomerUsageReport).Methods("GET")
 
 	// router.HandleFunc("/import_data", routeHandlers.ImportData).Methods("POST") // temporarily off
 
-	router.HandleFunc("/email_inventory_report/{customerId]}", routeHandlers.EmailInventoryReportHandler).Methods("POST")
+	router.HandleFunc("/email_customer_report/{customerId}", routeHandlers.EmailCustomerReportHandler).Methods("POST")
+	router.HandleFunc("/email_customer_reports", routeHandlers.EmailCustomerReportsHandler).Methods("POST")
 
 	// Env loading
 	err := godotenv.Load(".env")

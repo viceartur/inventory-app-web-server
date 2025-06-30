@@ -39,7 +39,10 @@ DROP TYPE IF EXISTS REASON_TYPE;
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
 	customer_name VARCHAR(100) NOT NULL UNIQUE,
-	user_id INT REFERENCES users (user_id) NOT NULL
+	user_id INT REFERENCES users (user_id) NOT NULL,
+	is_connected_to_reports BOOLEAN NOT NULL DEFAULT FALSE,
+	last_report_sent_at TIMESTAMP,
+	last_report_delivery_status TEXT
 );
 
 CREATE TABLE IF NOT EXISTS customer_programs (
