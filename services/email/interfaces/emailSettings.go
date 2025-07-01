@@ -5,10 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 	"inv_app/services/reports"
+	"io"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
+	"gopkg.in/gomail.v2"
 )
 
 type EmailSettings struct {
@@ -16,7 +20,7 @@ type EmailSettings struct {
 	Cc         Email         `json:"cc,omitempty"`
 	Bcc        []Email       `json:"bcc,omitempty"`
 	Subject    string        `json:"subject"`
-	Body       string        `json:"body,omitempty"`
+	Body       *string       `json:"body,omitempty"`
 	Attachment *bytes.Buffer `json:"attachment,omitempty"`
 }
 
@@ -30,10 +34,10 @@ func NewEmail() *EmailSettings {
 	return &EmailSettings{}
 }
 
-func (*EmailSettings) LoadEmailBody(filter reports.SearchQuery) (string, error) {
+func (e *EmailSettings) LoadEmailBody(filter reports.SearchQuery) (*string, error) {
 	content, err := os.ReadFile("services/email/templates/email_body.html")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Replace template variables
@@ -41,11 +45,11 @@ func (*EmailSettings) LoadEmailBody(filter reports.SearchQuery) (string, error) 
 	body = strings.ReplaceAll(body, "{{start_date}}", filter.DateFrom)
 	body = strings.ReplaceAll(body, "{{end_date}}", filter.DateTo)
 
-	return body, nil
+	return &body, nil
 }
 
 // GenerateFormattedExcel creates an Excel file with headers and rows.
-func (*EmailSettings) GenerateFormattedExcel(report Report) (*bytes.Buffer, error) {
+func (e *EmailSettings) GenerateFormattedExcel(report Report) (*bytes.Buffer, error) {
 	f := excelize.NewFile()
 	sheet := "Customer Report"
 	index, err := f.NewSheet(sheet)
@@ -127,21 +131,93 @@ func createHeaderStyle(f *excelize.File) (int, error) {
 	return f.NewStyle(style)
 }
 
-func (r *EmailSettings) InitEmailStatus(customerId CustomerID) *EmailStatus {
+// EmailCustomerReport sends an email with the given Excel attachment.
+func (email *EmailSettings) EmailCustomerReport(customerUsgFilter reports.SearchQuery) error {
+	user := os.Getenv("SMTP_USER")
+	password := os.Getenv("SMTP_PASS")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	from := os.Getenv("SMTP_FROM")
+	dateFrom := customerUsgFilter.DateFrom
+	dateTo := customerUsgFilter.DateTo
+
+	if user == "" || password == "" || smtpHost == "" || smtpPort == "" || from == "" {
+		return fmt.Errorf("SMTP configuration is incomplete.")
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", from)
+
+	to := make([]string, len(email.To))
+	for i, e := range email.To {
+		to[i] = string(e)
+	}
+	if len(to) == 0 {
+		return fmt.Errorf("No recipients specified.")
+	}
+	m.SetHeader("To", to...)
+
+	if email.Cc != "" {
+		m.SetHeader("Cc", string(email.Cc))
+	}
+
+	if len(email.Bcc) > 0 {
+		bcc := make([]string, len(email.Bcc))
+		for i, e := range email.Bcc {
+			bcc[i] = string(e)
+		}
+		m.SetHeader("Bcc", bcc...)
+	}
+
+	m.SetHeader("Subject", email.Subject)
+	m.SetHeader("Date", time.Now().Format(time.RFC1123Z))
+	m.SetBody("text/html", *email.Body)
+	if email.Attachment != nil {
+		m.Attach(
+			fmt.Sprintf("customer_inventory_report_from_%s_to_%s.xlsx", dateFrom, dateTo),
+			gomail.SetCopyFunc(func(w io.Writer) error {
+				_, err := w.Write(email.Attachment.Bytes())
+				return err
+			}),
+			gomail.SetHeader(map[string][]string{
+				"Content-Type": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+				"Content-Disposition": {
+					fmt.Sprintf(`attachment; filename="customer_inventory_report_from_%s_to_%s.xlsx"`, dateFrom, dateTo),
+				},
+				"Content-Transfer-Encoding": {"base64"},
+			}),
+		)
+	}
+
+	port, err := strconv.Atoi(smtpPort)
+	if err != nil {
+		return fmt.Errorf("Invalid SMTP_PORT: %w", err)
+	}
+
+	d := gomail.NewDialer(smtpHost, port, user, password)
+	return d.DialAndSend(m)
+}
+
+// InitEmailStatus initializes an Email Status struct.
+func (e *EmailSettings) InitEmailStatus(customerId CustomerID) *EmailStatus {
 	return &EmailStatus{CustomerID: customerId}
 }
 
 // AddSentStatus updates the customer's last report delivery status and timestamp in the database.
-func (r *EmailSettings) AddEmailSentStatus(db *sql.DB, emailStatus *EmailStatus) error {
+func (e *EmailSettings) AddEmailSentStatus(db *sql.DB, emailStatus *EmailStatus) error {
 	_, err := db.Exec(`
 		UPDATE
 			customers
 		SET
 			last_report_delivery_status = $2,
-			last_report_sent_at = NOW()
+			last_report_sent_at = $3
 		WHERE
 			customer_id = $1;
-	`, emailStatus.CustomerID, emailStatus.Status)
+	`,
+		emailStatus.CustomerID,
+		emailStatus.Status,
+		time.Now().UTC(),
+	)
 	if err != nil {
 		return err
 	}

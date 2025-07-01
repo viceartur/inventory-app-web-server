@@ -3,14 +3,18 @@ package customers
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 type Customer struct {
-	CustomerID   int      `field:"customer_id" json:"customerId"`
-	CustomerName string   `field:"customer_name" json:"customerName"`
-	Emails       []string `json:"emails"`
-	UserID       int      `field:"user_id" json:"userId"`
-	Username     string   `field:"username" json:"username"`
+	CustomerID               int       `field:"customer_id" json:"customerId"`
+	CustomerName             string    `field:"customer_name" json:"customerName"`
+	Emails                   []string  `json:"emails"`
+	UserID                   int       `field:"user_id" json:"userId"`
+	Username                 string    `field:"username" json:"username"`
+	IsConnectedToReports     bool      `field:"is_connected_to_reports" json:"isConnectedToReports"`
+	LastReportSentAt         time.Time `field:"last_report_sent_at" json:"lastReportSentAt"`
+	LastReportDeliveryStatus string    `field:"last_report_delivery_status" json:"lastReportDeliveryStatus"`
 }
 
 type CustomerProgram struct {
@@ -39,19 +43,25 @@ func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
 	var customerID int
 	err = tx.QueryRow(`
 		INSERT INTO
-			customers (customer_name, user_id)
+			customers (customer_name, user_id, is_connected_to_reports)
 		VALUES
-			($1, $2)
+			($1, $2, $3)
 		RETURNING
 			customer_id;
-	`, customer.CustomerName, customer.UserID).Scan(&customerID)
+	`, customer.CustomerName,
+		customer.UserID,
+		customer.IsConnectedToReports,
+	).Scan(&customerID)
 	if err != nil {
 		tx.Rollback()
 		return Customer{}, err
 	}
 
 	// Remove old emails if any
-	_, err = tx.Exec(`DELETE FROM customer_emails WHERE customer_id = $1`, customerID)
+	_, err = tx.Exec(
+		`DELETE FROM customer_emails WHERE customer_id = $1`,
+		customerID,
+	)
 	if err != nil {
 		tx.Rollback()
 		return Customer{}, err
@@ -81,12 +91,29 @@ func CreateCustomer(db *sql.DB, customer Customer) (Customer, error) {
 func GetCustomer(db *sql.DB, customerId int) (Customer, error) {
 	var c Customer
 	var username sql.NullString
+	var lastReportSentAt sql.NullTime
+	var lastReportDeliveryStatus sql.NullString
 	err := db.QueryRow(`
-		SELECT c.customer_id, c.customer_name, c.user_id, u.username
+		SELECT
+			c.customer_id,
+			c.customer_name,
+			c.user_id,
+			u.username,
+			c.is_connected_to_reports,
+			c.last_report_sent_at,
+			c.last_report_delivery_status
 		FROM customers c
 		LEFT JOIN users u ON u.user_id = c.user_id
 		WHERE c.customer_id = $1
-	`, customerId).Scan(&c.CustomerID, &c.CustomerName, &c.UserID, &username)
+	`, customerId).Scan(
+		&c.CustomerID,
+		&c.CustomerName,
+		&c.UserID,
+		&username,
+		&c.IsConnectedToReports,
+		&lastReportSentAt,
+		&lastReportDeliveryStatus,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Customer{}, nil
@@ -94,8 +121,15 @@ func GetCustomer(db *sql.DB, customerId int) (Customer, error) {
 		return Customer{}, err
 	}
 
+	// Check for NULL values
 	if username.Valid {
 		c.Username = username.String
+	}
+	if lastReportSentAt.Valid {
+		c.LastReportSentAt = lastReportSentAt.Time
+	}
+	if lastReportDeliveryStatus.Valid {
+		c.LastReportDeliveryStatus = lastReportDeliveryStatus.String
 	}
 
 	rows, err := db.Query(`SELECT email FROM customer_emails WHERE customer_id = $1`, customerId)
@@ -117,7 +151,14 @@ func GetCustomer(db *sql.DB, customerId int) (Customer, error) {
 
 func GetCustomers(db *sql.DB) ([]Customer, error) {
 	rows, err := db.Query(`
-		SELECT c.customer_id, c.customer_name, c.user_id, u.username
+		SELECT
+			c.customer_id,
+			c.customer_name,
+			c.user_id,
+			u.username,
+			c.is_connected_to_reports,
+			c.last_report_sent_at,
+			c.last_report_delivery_status
 		FROM customers c
 		LEFT JOIN users u ON u.user_id = c.user_id
 		ORDER BY c.customer_name
@@ -130,14 +171,35 @@ func GetCustomers(db *sql.DB) ([]Customer, error) {
 	for rows.Next() {
 		var c Customer
 		var username sql.NullString
-		if err := rows.Scan(&c.CustomerID, &c.CustomerName, &c.UserID, &username); err != nil {
+		var lastReportSentAt sql.NullTime
+		var lastReportDeliveryStatus sql.NullString
+		if err := rows.Scan(
+			&c.CustomerID,
+			&c.CustomerName,
+			&c.UserID,
+			&username,
+			&c.IsConnectedToReports,
+			&lastReportSentAt,
+			&lastReportDeliveryStatus,
+		); err != nil {
 			return customers, err
 		}
+
+		// Check for NULL values
 		if username.Valid {
 			c.Username = username.String
 		}
-		// fetch emails
-		emailRows, err := db.Query(`SELECT email FROM customer_emails WHERE customer_id = $1`, c.CustomerID)
+		if lastReportSentAt.Valid {
+			c.LastReportSentAt = lastReportSentAt.Time
+		}
+		if lastReportDeliveryStatus.Valid {
+			c.LastReportDeliveryStatus = lastReportDeliveryStatus.String
+		}
+
+		// Fetch emails
+		emailRows, err := db.Query(
+			`SELECT email FROM customer_emails WHERE customer_id = $1`,
+			c.CustomerID)
 		if err == nil {
 			for emailRows.Next() {
 				var email string
@@ -165,8 +227,20 @@ func UpdateCustomer(db *sql.DB, customer Customer) (Customer, error) {
 	}()
 
 	_, err = tx.Exec(`
-		UPDATE customers SET customer_name = $1, user_id = $2 WHERE customer_id = $3
-	`, customer.CustomerName, customer.UserID, customer.CustomerID)
+		UPDATE
+			customers
+		SET
+			customer_name = $1,
+			user_id = $2,
+			is_connected_to_reports = $4
+		WHERE
+			customer_id = $3
+	`,
+		customer.CustomerName,
+		customer.UserID,
+		customer.CustomerID,
+		customer.IsConnectedToReports,
+	)
 	if err != nil {
 		tx.Rollback()
 		return Customer{}, err

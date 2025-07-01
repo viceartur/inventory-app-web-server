@@ -5,20 +5,16 @@ import (
 	"fmt"
 	interfaces "inv_app/services/email/interfaces"
 	"inv_app/services/reports"
-	"io"
 	"log"
-	"os"
-	"strconv"
 	"sync"
-	"time"
-
-	"gopkg.in/gomail.v2"
 )
 
 // HandleCustomerReportsEmail generates, formats, and sends customer usage reports via email.
 // It fetches report data, groups by customer, retrieves email addresses, generates attachments,
 // sends emails, and logs the status in the database.
 func HandleCustomerReportsEmail(db *sql.DB, customerUsgFilter reports.SearchQuery) error {
+	log.Println("Email sending STARTED for the Customer ID:", customerUsgFilter.CustomerID)
+
 	// Ensure the report period is specified.
 	if customerUsgFilter.DateFrom == "" || customerUsgFilter.DateTo == "" {
 		return fmt.Errorf("No period specified.")
@@ -52,8 +48,7 @@ func HandleCustomerReportsEmail(db *sql.DB, customerUsgFilter reports.SearchQuer
 	for cid := range customerIdSet {
 		_, ok := reportSettings.GetCustomerSettings(cid)
 		if !ok {
-			log.Printf("Customer settings not found for ID: %d", cid)
-			continue
+			return fmt.Errorf("Customer settings not found for the Customer ID: %d", cid)
 		}
 
 		wg.Add(1)
@@ -123,14 +118,14 @@ func HandleCustomerReportsEmail(db *sql.DB, customerUsgFilter reports.SearchQuer
 			emailStatus := emailSettings.InitEmailStatus(customerId)
 
 			// Send the email and update status.
-			err := EmailCustomerReport(emailSettings)
+			err := emailSettings.EmailCustomerReport(customerUsgFilter)
 			if err != nil {
 				emailStatus.Status = interfaces.Status(fmt.Sprintf(
 					"Error: %s", err,
 				))
 			} else {
 				emailStatus.Status = interfaces.Status(fmt.Sprintf(
-					"Succes: Report sent for [%s - %s].",
+					"Success: Report sent for [%s - %s].",
 					customerUsgFilter.DateFrom,
 					customerUsgFilter.DateTo,
 				))
@@ -143,67 +138,7 @@ func HandleCustomerReportsEmail(db *sql.DB, customerUsgFilter reports.SearchQuer
 	}
 	wgSend.Wait()
 
+	log.Println("Email sending FINISHED for the Customer ID:", customerUsgFilter.CustomerID)
+
 	return nil
-}
-
-// EmailCustomerReport sends an email with the given Excel attachment.
-func EmailCustomerReport(email *interfaces.EmailSettings) error {
-	user := os.Getenv("SMTP_USER")
-	password := os.Getenv("SMTP_PASS")
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	from := os.Getenv("SMTP_FROM")
-
-	if user == "" || password == "" || smtpHost == "" || smtpPort == "" || from == "" {
-		return fmt.Errorf("SMTP configuration is incomplete.")
-	}
-
-	m := gomail.NewMessage()
-	m.SetHeader("From", from)
-
-	to := make([]string, len(email.To))
-	for i, e := range email.To {
-		to[i] = string(e)
-	}
-	if len(to) == 0 {
-		return fmt.Errorf("No recipients specified.")
-	}
-	m.SetHeader("To", to...)
-
-	if email.Cc != "" {
-		m.SetHeader("Cc", string(email.Cc))
-	}
-
-	if len(email.Bcc) > 0 {
-		bcc := make([]string, len(email.Bcc))
-		for i, e := range email.Bcc {
-			bcc[i] = string(e)
-		}
-		m.SetHeader("Bcc", bcc...)
-	}
-
-	m.SetHeader("Subject", email.Subject)
-	m.SetHeader("Date", time.Now().Format(time.RFC1123Z))
-	m.SetBody("text/html", email.Body)
-	if email.Attachment != nil {
-		m.Attach("customer_report.xlsx",
-			gomail.SetCopyFunc(func(w io.Writer) error {
-				_, err := w.Write(email.Attachment.Bytes())
-				return err
-			}),
-			gomail.SetHeader(map[string][]string{
-				"Content-Type":              {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-				"Content-Disposition":       {`attachment; filename="customer_report.xlsx"`},
-				"Content-Transfer-Encoding": {"base64"},
-			}),
-		)
-	}
-
-	port, err := strconv.Atoi(smtpPort)
-	if err != nil {
-		return fmt.Errorf("Invalid SMTP_PORT: %w", err)
-	}
-
-	d := gomail.NewDialer(smtpHost, port, user, password)
-	return d.DialAndSend(m)
 }
