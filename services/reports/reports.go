@@ -677,10 +677,14 @@ func (c *Report) GetCustomerUsage() ([]CustomerUsageRep, error) {
 			COALESCE(u.qty_used, 0) AS qty_used,
 			COALESCE(s.qty_spoiled, 0) AS qty_spoiled,
 			COALESCE(eq.qty_end, 0) AS qty_end,
-			COALESCE(ROUND(au.avg_weekly_usage, 2), 0) AS six_week_avg_to_ref_end,
 			CASE
+				WHEN m.material_type NOT IN ('CARDS (PVC)', 'CARDS (METAL)', 'CHIPS') THEN 0
+				ELSE COALESCE(ROUND(au.avg_weekly_usage), 0)
+			END AS six_week_avg_to_ref_end,
+			CASE
+				WHEN m.material_type NOT IN ('CARDS (PVC)', 'CARDS (METAL)', 'CHIPS') THEN 0
 				WHEN au.avg_weekly_usage = 0 THEN NULL
-				ELSE ROUND(COALESCE(eq.qty_end, 0) / au.avg_weekly_usage, 2)
+				ELSE ROUND(COALESCE(eq.qty_end, 0) / au.avg_weekly_usage)
 			END AS weeks_remaining
 		FROM
 			materials m
@@ -748,7 +752,7 @@ func (c *Report) GetCustomerUsage() ([]CustomerUsageRep, error) {
 	for rows.Next() {
 		var reportRow CustomerUsageRep
 		var customerID sql.NullInt64
-		var weeksRemaining sql.NullFloat64
+		var weeksRemaining sql.NullInt64
 
 		err := rows.Scan(
 			&customerID,
@@ -776,7 +780,7 @@ func (c *Report) GetCustomerUsage() ([]CustomerUsageRep, error) {
 
 		// Check for NULL weeks remaining
 		if weeksRemaining.Valid {
-			reportRow.WeeksRemaining = float32(weeksRemaining.Float64)
+			reportRow.WeeksRemaining = int(weeksRemaining.Int64)
 		} else {
 			reportRow.WeeksRemaining = 0
 		}

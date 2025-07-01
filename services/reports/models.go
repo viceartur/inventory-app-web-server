@@ -71,15 +71,15 @@ type VaultRep struct {
 }
 
 type CustomerUsageRep struct {
-	CustomerID     int     `field:"customer_id" json:"customerId"`
-	ProgramName    string  `field:"program_name" json:"programName"`
-	MaterialType   string  `field:"material_type" json:"materialType"`
-	StockID        string  `field:"stock_id" json:"stockId"`
-	QtyStart       int     `field:"qty_start" json:"qtyStart"`
-	QtyReceived    int     `field:"qty_received" json:"qtyReceived"`
-	QtyUsed        int     `field:"qty_used" json:"qtyUsed"`
-	QtySpoiled     int     `field:"qty_spoiled" json:"qtySpoiled"`
-	QtyEnd         int     `field:"qty_end" json:"qtyEnd"`
-	WeekAvg        float32 `field:"six_week_avg_to_ref_end" json:"weekAvg"`
-	WeeksRemaining float32 `field:"weeks_remaining" json:"weeksRemaining"`
+	CustomerID     int    `field:"customer_id" json:"customerId"`
+	ProgramName    string `field:"program_name" json:"programName"`
+	MaterialType   string `field:"material_type" json:"materialType"`
+	StockID        string `field:"stock_id" json:"stockId"`
+	QtyStart       int    `field:"qty_start" json:"qtyStart"`
+	QtyReceived    int    `field:"qty_received" json:"qtyReceived"`
+	QtyUsed        int    `field:"qty_used" json:"qtyUsed"`
+	QtySpoiled     int    `field:"qty_spoiled" json:"qtySpoiled"`
+	QtyEnd         int    `field:"qty_end" json:"qtyEnd"`
+	WeekAvg        int    `field:"six_week_avg_to_ref_end" json:"weekAvg"`
+	WeeksRemaining int    `field:"weeks_remaining" json:"weeksRemaining"`
 }
