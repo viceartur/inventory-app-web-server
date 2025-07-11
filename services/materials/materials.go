@@ -120,13 +120,39 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterial, error
 			&material.MaterialType,
 			&material.Owner,
 			&material.UserID,
-			&material.UserName,
+			&material.Username,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
 		}
 		materials = append(materials, material)
 	}
 	return materials, nil
+}
+
+func GetIncomingWarehouseMaterialsCount(db *sql.DB) (int, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM incoming_materials im
+		WHERE im.type NOT IN ('CARDS (PVC)', 'CARDS (METAL)', 'CHIPS');
+	`).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func GetIncomingVaultMaterialsCount(db *sql.DB) (int, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM incoming_materials im
+		WHERE im.type IN ('CARDS (PVC)', 'CARDS (METAL)', 'CHIPS');
+	`).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
@@ -826,19 +852,12 @@ func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 	return nil
 }
 
-func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMaterialsJSON) error {
+func RequestMaterials(ctx context.Context, db *sql.DB, requestedMaterials RequestedMaterialsJSON) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Commit()
-
-	var userId sql.NullInt64
-	if materials.UserID == 0 {
-		userId = sql.NullInt64{Valid: false}
-	} else {
-		userId = sql.NullInt64{Int64: int64(materials.UserID), Valid: true}
-	}
 
 	query := `
 	INSERT INTO requested_materials
@@ -846,15 +865,15 @@ func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 	args := []any{}
 	placeholderCount := 1
 
-	for i, m := range materials.Materials {
+	for i, m := range requestedMaterials.Materials {
 		qty := m.Qty
 		if qty == 0 {
 			continue
 		}
-
 		if i > 0 {
 			query += ", "
 		}
+
 		query += fmt.Sprintf(
 			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
 			placeholderCount, placeholderCount+1,
@@ -864,7 +883,19 @@ func RequestMaterials(ctx context.Context, db *sql.DB, materials RequestedMateri
 			placeholderCount+8,
 		)
 
-		args = append(args, m.StockID, m.Description, m.Qty, 0, "pending", "Requested", time.Now(), time.Now(), userId)
+		args = append(
+			args,
+			m.StockID,
+			m.Description,
+			m.Qty,
+			0,
+			"pending",
+			"Needs to be delivered",
+			time.Now(),
+			time.Now(),
+			requestedMaterials.UserID,
+		)
+
 		placeholderCount += 9
 	}
 
@@ -894,13 +925,15 @@ func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]Material, e
 		WHERE ($1 = 0 OR rm.request_id = $1) AND
 		      ($2 = '' OR rm.stock_id ILIKE '%' || $2 || '%') AND
 			  ($3 = '' OR rm.status::TEXT = $3) AND
-			  ($4 = '' OR rm.requested_at::TEXT <= $4)
+			  ($4 = '' OR rm.requested_at::TEXT >= $4) AND
+			  ($5 = '' OR rm.requested_at::TEXT <= $5)
 		ORDER BY rm.requested_at;
 			  `,
 		filterOpts.RequestId,
 		filterOpts.StockId,
 		filterOpts.Status,
-		filterOpts.RequestedAt,
+		filterOpts.RequestedFrom,
+		filterOpts.RequestedTo,
 	)
 	if err != nil {
 		return nil, err
@@ -913,7 +946,7 @@ func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]Material, e
 
 		if err := rows.Scan(
 			&material.RequestID,
-			&material.UserName,
+			&material.Username,
 			&material.StockID,
 			&material.Description,
 			&material.QtyRequested,
@@ -928,6 +961,19 @@ func GetRequestedMaterials(db *sql.DB, filterOpts MaterialFilter) ([]Material, e
 		materials = append(materials, material)
 	}
 	return materials, nil
+}
+
+func GetRequestedMaterialsCount(db *sql.DB) (int, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM requested_materials
+		WHERE status = 'pending';
+	`).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func UpdateRequestedMaterial(db *sql.DB, material MaterialJSON) error {

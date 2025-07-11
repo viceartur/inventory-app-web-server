@@ -3,6 +3,8 @@ package websocket
 import (
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 // Web Socket Endpoint without any Parameters
@@ -13,6 +15,10 @@ func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Println("Upgrade error:", err)
 		return
 	}
-	addClient(ws)
+
+	vars := mux.Vars(r)
+	userRole := UserRole(vars["userRole"])
+
+	addClient(ws, userRole)
 	go reader(ws)
 }

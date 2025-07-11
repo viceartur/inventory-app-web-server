@@ -16,7 +16,7 @@ type IncomingMaterial struct {
 	MaterialType string  `field:"type" json:"materialType"`
 	Owner        string  `field:"owner" json:"owner"`
 	UserID       int     `field:"user_id" json:"userId"`
-	UserName     string  `field:"username" json:"username"`
+	Username     string  `field:"username" json:"username"`
 }
 
 type MaterialJSON struct {
@@ -59,7 +59,7 @@ type Material struct {
 	IsPrimary         bool      `field:"is_primary" json:"isPrimary"`
 	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange"`
 	RequestID         int       `field:"request_id" json:"requestId"`
-	UserName          string    `field:"username" json:"userName"`
+	Username          string    `field:"username" json:"username"`
 	Status            string    `field:"status" json:"status"`
 	QtyRequested      int       `field:"quantity_requested" json:"qtyRequested"`
 	QtyUsed           int       `field:"quantity_used" json:"qtyUsed"`
@@ -78,14 +78,15 @@ type Transaction struct {
 }
 
 type MaterialFilter struct {
-	MaterialId   int
-	StockId      string
-	ProgramName  string
-	Description  string
-	LocationName string
-	Status       string
-	RequestId    int
-	RequestedAt  string
+	MaterialId    int
+	StockId       string
+	ProgramName   string
+	Description   string
+	LocationName  string
+	Status        string
+	RequestId     int
+	RequestedFrom string
+	RequestedTo   string
 }
 
 type Price struct {

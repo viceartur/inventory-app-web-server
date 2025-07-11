@@ -25,7 +25,7 @@ func main() {
 	router.HandleFunc("/users", routeHandlers.CreateUserHandler).Methods("POST")
 
 	// WebSocket
-	router.HandleFunc("/ws", websocket.WsEndpoint)
+	router.HandleFunc("/ws/{userRole}", websocket.WsEndpoint)
 
 	// Routes
 	router.HandleFunc("/customers", routeHandlers.CreateCustomerHandler).Methods("POST")
@@ -51,6 +51,7 @@ func main() {
 
 	router.HandleFunc("/requested_materials", routeHandlers.RequestMaterialsHandler).Methods("POST")
 	router.HandleFunc("/requested_materials", routeHandlers.GetRequestedMaterialsHandler).Methods("GET")
+	router.HandleFunc("/requested_materials/count", routeHandlers.GetRequestedMaterialsCountHandler).Methods("GET")
 	router.HandleFunc("/requested_materials", routeHandlers.UpdateRequestedMaterialHandler).Methods("PATCH")
 
 	router.HandleFunc("/incoming_materials", routeHandlers.SendMaterialHandler).Methods("POST")

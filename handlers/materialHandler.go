@@ -253,12 +253,14 @@ func GetRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(requestId)
 	stockId := r.URL.Query().Get("stockId")
 	status := r.URL.Query().Get("status")
-	requestedAt := r.URL.Query().Get("requestedAt")
+	requestedFrom := r.URL.Query().Get("requestedFrom")
+	requestedTo := r.URL.Query().Get("requestedTo")
 	filterOpts := materials.MaterialFilter{
-		RequestId:   id,
-		StockId:     stockId,
-		Status:      status,
-		RequestedAt: requestedAt,
+		RequestId:     id,
+		StockId:       stockId,
+		Status:        status,
+		RequestedFrom: requestedFrom,
+		RequestedTo:   requestedTo,
 	}
 	materials, err := materials.GetRequestedMaterials(db, filterOpts)
 
@@ -269,6 +271,22 @@ func GetRequestedMaterialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := SuccessResponse{Message: "Requested Materials List", Data: materials}
+	json.NewEncoder(w).Encode(res)
+}
+
+func GetRequestedMaterialsCountHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	materialsCount, err := materials.GetRequestedMaterialsCount(db)
+
+	if err != nil {
+		errRes := ErrorResponse{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponse{Message: "Requested Materials Count", Data: materialsCount}
 	json.NewEncoder(w).Encode(res)
 }
 
