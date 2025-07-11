@@ -36,6 +36,22 @@ DROP TYPE IF EXISTS MATERIAL_TYPE;
 
 DROP TYPE IF EXISTS REASON_TYPE;
 
+CREATE TYPE ROLE AS ENUM (
+	'admin',
+	'warehouse',
+	'csr',
+	'production',
+	'vault'
+);
+
+CREATE TABLE IF NOT EXISTS users (
+	user_id SERIAL PRIMARY KEY,
+	username VARCHAR(100) NOT NULL,
+	password VARCHAR(100) NOT NULL,
+	role ROLE NOT NULL,
+	email VARCHAR(100) UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS customers (
 	customer_id SERIAL PRIMARY KEY,
 	customer_name VARCHAR(100) NOT NULL UNIQUE,
@@ -153,22 +169,6 @@ CREATE TABLE IF NOT EXISTS incoming_materials (
 	type VARCHAR(100) NOT NULL,
 	owner OWNER NOT NULL,
 	user_id INT REFERENCES users (user_id) NOT NULL
-);
-
-CREATE TYPE ROLE AS ENUM (
-	'admin',
-	'warehouse',
-	'csr',
-	'production',
-	'vault'
-);
-
-CREATE TABLE IF NOT EXISTS users (
-	user_id SERIAL PRIMARY KEY,
-	username VARCHAR(100) NOT NULL,
-	password VARCHAR(100) NOT NULL,
-	role ROLE NOT NULL,
-	email VARCHAR(100) UNIQUE
 );
 
 CREATE TYPE REQUEST_STATUS AS ENUM ('pending', 'sent', 'declined');
