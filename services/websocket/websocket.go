@@ -80,7 +80,7 @@ func handleSendMaterial() {
 
 func handleSendVault() {
 	db, _ := database.ConnectToDB()
-	count, err := materials.GetIncomingWarehouseMaterialsCount(db)
+	count, err := materials.GetIncomingVaultMaterialsCount(db)
 	if err != nil {
 		log.Println("WS error getting vault materials count:", err)
 		return
