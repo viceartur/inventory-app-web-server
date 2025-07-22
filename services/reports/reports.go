@@ -266,7 +266,7 @@ func (w *Report) GetWeeklyUsage() ([]WeeklyUsageRep, error) {
 					filtered_transactions
 				WHERE
 					quantity_change < 0
-					AND notes NOT ILIKE 'moved from a location'
+					AND notes NOT ILIKE 'moved to%%'
 				GROUP BY
 					stock_id,
 					week_start
