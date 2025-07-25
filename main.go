@@ -48,6 +48,8 @@ func main() {
 	router.HandleFunc("/materials/remove-from-location", routeHandlers.RemoveMaterialHandler).Methods("PATCH")
 	router.HandleFunc("/materials/description", routeHandlers.GetMaterialDescriptionHandler).Methods("GET")
 	router.HandleFunc("/materials/transactions", routeHandlers.GetMaterialTransactionsHandler).Methods("GET")
+	router.HandleFunc("/materials/{stockId}/status", routeHandlers.UpdateMaterialsStatusHandler).Methods("PATCH")
+	router.HandleFunc("/materials/grouped-by-stock", routeHandlers.GetMaterialsGroupedByStockIDHandler).Methods("GET")
 
 	router.HandleFunc("/requested_materials", routeHandlers.RequestMaterialsHandler).Methods("POST")
 	router.HandleFunc("/requested_materials", routeHandlers.GetRequestedMaterialsHandler).Methods("GET")

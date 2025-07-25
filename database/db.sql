@@ -110,6 +110,8 @@ CREATE TYPE MATERIAL_TYPE AS ENUM (
 
 CREATE TYPE OWNER AS ENUM ('Tag', 'Customer');
 
+CREATE TYPE MATERIAL_STATUS AS ENUM ('ACTIVE', 'INACTIVE', 'OBSOLETE');
+
 CREATE TABLE IF NOT EXISTS materials (
 	material_id SERIAL PRIMARY KEY,
 	stock_id VARCHAR(100) NOT NULL,
@@ -122,7 +124,7 @@ CREATE TABLE IF NOT EXISTS materials (
 	min_required_quantity INT,
 	max_required_quantity INT,
 	updated_at DATE,
-	is_active BOOLEAN NOT NULL,
+	material_status MATERIAL_STATUS NOT NULL,
 	owner OWNER NOT NULL,
 	is_primary BOOLEAN NOT NULL,
 	serial_number_range VARCHAR(100)
@@ -165,7 +167,7 @@ CREATE TABLE IF NOT EXISTS incoming_materials (
 	min_required_quantity INT,
 	max_required_quantity INT,
 	description TEXT NOT NULL,
-	is_active BOOLEAN NOT NULL,
+	material_status MATERIAL_STATUS NOT NULL,
 	type VARCHAR(100) NOT NULL,
 	owner OWNER NOT NULL,
 	user_id INT REFERENCES users (user_id) NOT NULL

@@ -72,11 +72,11 @@ func SendMaterial(material IncomingMaterial, db *sql.DB) error {
 				INSERT INTO incoming_materials
 					(program_id, stock_id, cost, quantity,
 					max_required_quantity, min_required_quantity,
-					description, is_active, type, owner, user_id)
+					description, material_status, type, owner, user_id)
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		material.ProgramID, material.StockID, material.Cost,
 		qty, maxQty, minQty,
-		material.Description, material.IsActive, material.MaterialType,
+		material.Description, material.MaterialStatus, material.MaterialType,
 		material.Owner,
 		material.UserID,
 	)
@@ -90,8 +90,8 @@ func SendMaterial(material IncomingMaterial, db *sql.DB) error {
 func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterial, error) {
 	rows, err := db.Query(`
 		SELECT shipping_id, c.program_name, c.program_id, stock_id, cost, quantity,
-		min_required_quantity, max_required_quantity, description, im.is_active, type, owner,
-		u.user_id, u.username
+		min_required_quantity, max_required_quantity, description, im.material_status,
+		type, owner, u.user_id, u.username
 		FROM incoming_materials im
 		LEFT JOIN customer_programs c ON c.program_id = im.program_id
 		LEFT JOIN users u ON u.user_id = im.user_id
@@ -116,7 +116,7 @@ func GetIncomingMaterials(db *sql.DB, materialId int) ([]IncomingMaterial, error
 			&material.MinQty,
 			&material.MaxQty,
 			&material.Description,
-			&material.IsActive,
+			&material.MaterialStatus,
 			&material.MaterialType,
 			&material.Owner,
 			&material.UserID,
@@ -170,7 +170,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 		max_required_quantity,
 		m.description,
 		COALESCE(notes,'None') AS "notes",
-		m.is_active AS "is_active_material",
+		m.material_status,
 		material_type, owner,
 		COALESCE(is_primary, false),
 		COALESCE(serial_number_range, '')
@@ -214,7 +214,7 @@ func GetMaterials(db *sql.DB, opts *MaterialFilter) ([]Material, error) {
 			&material.MaxQty,
 			&material.Description,
 			&material.Notes,
-			&material.IsActiveMaterial,
+			&material.MaterialStatus,
 			&material.MaterialType,
 			&material.Owner,
 			&material.IsPrimary,
@@ -246,7 +246,7 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]Material, error)
 			min_required_quantity,
 			max_required_quantity,
 			m.description, COALESCE(notes,'None') AS "notes",
-			m.is_active AS "is_active_material",
+			m.material_status,
 			material_type, owner,
 			COALESCE(is_primary, false),
 			COALESCE(serial_number_range, '')
@@ -279,7 +279,7 @@ func GetMaterialsByStockID(db *sql.DB, opts *MaterialFilter) ([]Material, error)
 			&material.MaxQty,
 			&material.Description,
 			&material.Notes,
-			&material.IsActiveMaterial,
+			&material.MaterialStatus,
 			&material.MaterialType,
 			&material.Owner,
 			&material.IsPrimary,
@@ -304,7 +304,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 	var incomingMaterial IncomingMaterial
 	err = tx.QueryRow(`
 		SELECT program_id, stock_id, quantity, cost, min_required_quantity,
-		max_required_quantity, description, is_active, type, owner
+		max_required_quantity, description, material_status, type, owner
 		FROM incoming_materials
 		WHERE shipping_id = $1`, material.MaterialID).
 		Scan(
@@ -315,7 +315,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 			&incomingMaterial.MinQty,
 			&incomingMaterial.MaxQty,
 			&incomingMaterial.Description,
-			&incomingMaterial.IsActive,
+			&incomingMaterial.MaterialStatus,
 			&incomingMaterial.MaterialType,
 			&incomingMaterial.Owner,
 		)
@@ -412,7 +412,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 							updated_at,
 							min_required_quantity,
 							max_required_quantity,
-							is_active,
+							material_status,
 							owner,
 							is_primary,
 							serial_number_range
@@ -428,7 +428,7 @@ func CreateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) (int
 				time.Now(),
 				incomingMaterial.MinQty,
 				incomingMaterial.MaxQty,
-				incomingMaterial.IsActive,
+				incomingMaterial.MaterialStatus,
 				incomingMaterial.Owner,
 				false,
 				material.SerialNumberRange,
@@ -496,7 +496,7 @@ func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterial) error {
 			max_required_quantity = $6,
 			min_required_quantity = $7,
 			description = $8,
-			is_active = $9,
+			material_status = $9,
 			type = $10,
 			owner = $11
 		WHERE shipping_id = $1;
@@ -509,7 +509,7 @@ func UpdateIncomingMaterial(db *sql.DB, material IncomingMaterial) error {
 		material.MaxQty,
 		material.MinQty,
 		material.Description,
-		material.IsActive,
+		material.MaterialStatus,
 		material.MaterialType,
 		material.Owner,
 	)
@@ -576,7 +576,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 				notes = $2
 			WHERE material_id = $3 AND location_id = $4
 			RETURNING material_id, stock_id, location_id, program_id, material_type,
-					description, notes, quantity, updated_at, is_active AS "is_active_material",
+					description, notes, quantity, updated_at, material_status,
 					min_required_quantity, max_required_quantity, owner,
 					is_primary, serial_number_range;
 			`, quantity, currNotes, currMaterialId, currentLocationId,
@@ -590,7 +590,7 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 			&currMaterial.Notes,
 			&currMaterial.Quantity,
 			&currMaterial.UpdatedAt,
-			&currMaterial.IsActiveMaterial,
+			&currMaterial.MaterialStatus,
 			&currMaterial.MinQty,
 			&currMaterial.MaxQty,
 			&currMaterial.Owner,
@@ -668,14 +668,14 @@ func MoveMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) error 
 						stock_id, location_id,
 						program_id, material_type, description, notes,
 						quantity, updated_at,
-						is_active, min_required_quantity, max_required_quantity,
+						material_status, min_required_quantity, max_required_quantity,
 						owner, is_primary, serial_number_range
 					)
 					VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 					RETURNING material_id;`,
 			stockId, newLocationId,
 			currMaterial.ProgramID, currMaterial.MaterialType, currMaterial.Description,
-			currNotes, quantity, time.Now(), currMaterial.IsActiveMaterial,
+			currNotes, quantity, time.Now(), currMaterial.MaterialStatus,
 			currMaterial.MinQty, currMaterial.MaxQty, currMaterial.Owner,
 			currMaterial.IsPrimary, currMaterial.SerialNumberRange).
 			Scan(&newMaterialId)
@@ -1060,4 +1060,70 @@ func GetMaterialTransactions(db *sql.DB, jobTicket string) ([]Transaction, error
 	}
 
 	return transactions, nil
+}
+
+// UpdateMaterialsStatus updates the material_status field for all materials with the given stockId.
+func UpdateMaterialsStatus(db *sql.DB, stockId string, status string) error {
+	res, err := db.Exec(`
+		UPDATE materials
+		SET material_status = $2
+		WHERE stock_id = $1;
+	`,
+		stockId,
+		status,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to update material status for stock_id %s: %w", stockId, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("Failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("No materials updated for stock_id %s", stockId)
+	}
+	return nil
+}
+
+func GetMaterialsGroupedByStockID(db *sql.DB) ([]Material, error) {
+	rows, err := db.Query(`
+		SELECT
+			cp.program_name,
+			m.stock_id,
+			m.description,
+			m.material_status,
+			SUM(m.quantity) AS total_quantity
+		FROM materials m
+		LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+		WHERE
+		GROUP BY
+			cp.program_name,
+			m.stock_id,
+			m.description,
+			m.material_status
+		ORDER BY stock_id;
+		`)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying grouped materials: %w", err)
+	}
+	defer rows.Close()
+
+	var materials []Material
+	for rows.Next() {
+		var material Material
+		if err := rows.Scan(
+			&material.ProgramName,
+			&material.StockID,
+			&material.Description,
+			&material.MaterialStatus,
+			&material.Quantity,
+		); err != nil {
+			return nil, fmt.Errorf("Error scanning row: %w", err)
+		}
+		materials = append(materials, material)
+	}
+
+	return materials, nil
 }

@@ -7,6 +7,8 @@ import (
 	"inv_app/services/materials"
 	"net/http"
 	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 func GetMaterialTypesHandler(w http.ResponseWriter, r *http.Request) {
@@ -340,4 +342,53 @@ func GetMaterialTransactionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	res := SuccessResponse{Message: "Material Transactions Requested", Data: transactions}
 	json.NewEncoder(w).Encode(res)
+}
+
+func UpdateMaterialsStatusHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	vars := mux.Vars(r)
+	stockId, _ := vars["stockId"]
+
+	var body map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		errRes := ErrorResponse{Message: "Invalid JSON."}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+
+	status, ok := body["status"]
+	if !ok {
+		errRes := ErrorResponse{Message: "No status field provided."}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+
+	err := materials.UpdateMaterialsStatus(db, stockId, status)
+
+	if err != nil {
+		errRes := ErrorResponse{Message: err.Error()}
+		res, _ := json.Marshal(errRes)
+		http.Error(w, string(res), http.StatusConflict)
+		return
+	}
+	res := SuccessResponse{Message: "Stock ID status is updated."}
+	json.NewEncoder(w).Encode(res)
+}
+
+func GetMaterialsGroupedByStockIDHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := database.ConnectToDB()
+	defer db.Close()
+
+	materials, err := materials.GetMaterialsGroupedByStockID(db)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(materials)
 }

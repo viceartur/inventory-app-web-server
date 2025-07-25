@@ -195,7 +195,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (Material, error) {
 							material_id, stock_id, location_id,
 							program_id, material_type, description, notes,
 							quantity, updated_at,
-							is_active as "is_active_material",
+							material_status,
 							min_required_quantity, max_required_quantity,
 							owner, is_primary, COALESCE(serial_number_range, '')
 						FROM materials
@@ -211,7 +211,7 @@ func getMaterialById(materialId int, tx *sql.Tx) (Material, error) {
 		&currMaterial.Notes,
 		&currMaterial.Quantity,
 		&currMaterial.UpdatedAt,
-		&currMaterial.IsActiveMaterial,
+		&currMaterial.MaterialStatus,
 		&currMaterial.MinQty,
 		&currMaterial.MaxQty,
 		&currMaterial.Owner,

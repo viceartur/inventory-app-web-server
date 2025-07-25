@@ -3,20 +3,20 @@ package materials
 import "time"
 
 type IncomingMaterial struct {
-	ShippingID   int     `field:"shipping_id" json:"shippingId"`
-	ProgramName  string  `field:"program_name" json:"programName"`
-	ProgramID    int     `field:"program_id" json:"programId"`
-	StockID      string  `field:"stock_id" json:"stockId"`
-	Cost         float32 `field:"cost" json:"cost"`
-	Quantity     int     `field:"quantity" json:"quantity"`
-	MinQty       int     `field:"min_required_quantity" json:"minQuantity"`
-	MaxQty       int     `field:"max_required_quantity" json:"maxQuantity"`
-	Description  string  `field:"description" json:"description"`
-	IsActive     bool    `field:"is_active" json:"isActiveMaterial"`
-	MaterialType string  `field:"type" json:"materialType"`
-	Owner        string  `field:"owner" json:"owner"`
-	UserID       int     `field:"user_id" json:"userId"`
-	Username     string  `field:"username" json:"username"`
+	ShippingID     int     `field:"shipping_id" json:"shippingId"`
+	ProgramName    string  `field:"program_name" json:"programName"`
+	ProgramID      int     `field:"program_id" json:"programId"`
+	StockID        string  `field:"stock_id" json:"stockId"`
+	Cost           float32 `field:"cost" json:"cost"`
+	Quantity       int     `field:"quantity" json:"quantity"`
+	MinQty         int     `field:"min_required_quantity" json:"minQuantity"`
+	MaxQty         int     `field:"max_required_quantity" json:"maxQuantity"`
+	Description    string  `field:"description" json:"description"`
+	MaterialStatus string  `field:"material_status" json:"materialStatus"`
+	MaterialType   string  `field:"type" json:"materialType"`
+	Owner          string  `field:"owner" json:"owner"`
+	UserID         int     `field:"user_id" json:"userId"`
+	Username       string  `field:"username" json:"username"`
 }
 
 type MaterialJSON struct {
@@ -39,31 +39,33 @@ type RequestedMaterialsJSON struct {
 }
 
 type Material struct {
-	MaterialID        int       `field:"material_id" json:"materialId"`
-	WarehouseName     string    `field:"warehouse_name" json:"warehouseName"`
-	StockID           string    `field:"stock_id" json:"stockId"`
-	ProgramID         int       `field:"program_id" json:"programId"`
-	ProgramName       string    `field:"program_name" json:"programName"`
-	IsActiveProgram   bool      `field:"is_active_program" json:"isActiveProgram"`
-	LocationID        int       `field:"location_id" json:"locationId"`
-	LocationName      string    `field:"location_name" json:"locationName"`
-	MaterialType      string    `field:"material_type" json:"materialType"`
-	Description       string    `field:"description" json:"description"`
-	Notes             string    `field:"notes" json:"notes"`
-	Quantity          int       `field:"quantity" json:"quantity"`
-	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt"`
-	IsActiveMaterial  bool      `field:"is_active_material" json:"isActiveMaterial"`
-	MinQty            int       `field:"min_required_quantity" json:"minQty"`
-	MaxQty            int       `field:"max_required_quantity" json:"maxQty"`
-	Owner             string    `field:"onwer" json:"owner"`
-	IsPrimary         bool      `field:"is_primary" json:"isPrimary"`
-	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange"`
-	RequestID         int       `field:"request_id" json:"requestId"`
-	Username          string    `field:"username" json:"username"`
-	Status            string    `field:"status" json:"status"`
-	QtyRequested      int       `field:"quantity_requested" json:"qtyRequested"`
-	QtyUsed           int       `field:"quantity_used" json:"qtyUsed"`
-	RequestedAt       time.Time `field:"requested_at" json:"requestedAt"`
+	MaterialID        int       `field:"material_id" json:"materialId,omitempty"`
+	WarehouseName     string    `field:"warehouse_name" json:"warehouseName,omitempty"`
+	StockID           string    `field:"stock_id" json:"stockId,omitempty"`
+	ProgramID         int       `field:"program_id" json:"programId,omitempty"`
+	ProgramName       string    `field:"program_name" json:"programName,omitempty"`
+	IsActiveProgram   bool      `field:"is_active_program" json:"isActiveProgram,omitempty"`
+	LocationID        int       `field:"location_id" json:"locationId,omitempty"`
+	LocationName      string    `field:"location_name" json:"locationName,omitempty"`
+	MaterialType      string    `field:"material_type" json:"materialType,omitempty"`
+	Description       string    `field:"description" json:"description,omitempty"`
+	Notes             string    `field:"notes" json:"notes,omitempty"`
+	Quantity          int       `field:"quantity" json:"quantity,omitempty"`
+	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt,omitempty"`
+	MaterialStatus    string    `field:"material_status" json:"materialStatus,omitempty"`
+	MinQty            int       `field:"min_required_quantity" json:"minQty,omitempty"`
+	MaxQty            int       `field:"max_required_quantity" json:"maxQty,omitempty"`
+	Owner             string    `field:"onwer" json:"owner,omitempty"`
+	IsPrimary         bool      `field:"is_primary" json:"isPrimary,omitempty"`
+	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange,omitempty"`
+
+	// For Requests.
+	RequestID    int       `field:"request_id" json:"requestId,omitempty"`
+	Username     string    `field:"username" json:"username,omitempty"`
+	Status       string    `field:"status" json:"status,omitempty"`
+	QtyRequested int       `field:"quantity_requested" json:"qtyRequested,omitempty"`
+	QtyUsed      int       `field:"quantity_used" json:"qtyUsed,omitempty"`
+	RequestedAt  time.Time `field:"requested_at" json:"requestedAt,omitempty"`
 }
 
 type Transaction struct {
