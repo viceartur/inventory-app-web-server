@@ -1097,6 +1097,7 @@ func GetMaterialsGroupedByStockID(db *sql.DB) ([]Material, error) {
 			SUM(m.quantity) AS total_quantity
 		FROM materials m
 		LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
+		WHERE m.location_id IS NOT NULL
 		GROUP BY
 			cp.program_name,
 			m.stock_id,
