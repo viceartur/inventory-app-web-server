@@ -39,25 +39,25 @@ type RequestedMaterialsJSON struct {
 }
 
 type Material struct {
-	MaterialID        int       `field:"material_id" json:"materialId,omitempty"`
-	WarehouseName     string    `field:"warehouse_name" json:"warehouseName,omitempty"`
-	StockID           string    `field:"stock_id" json:"stockId,omitempty"`
-	ProgramID         int       `field:"program_id" json:"programId,omitempty"`
-	ProgramName       string    `field:"program_name" json:"programName,omitempty"`
-	IsActiveProgram   bool      `field:"is_active_program" json:"isActiveProgram,omitempty"`
-	LocationID        int       `field:"location_id" json:"locationId,omitempty"`
-	LocationName      string    `field:"location_name" json:"locationName,omitempty"`
-	MaterialType      string    `field:"material_type" json:"materialType,omitempty"`
-	Description       string    `field:"description" json:"description,omitempty"`
-	Notes             string    `field:"notes" json:"notes,omitempty"`
-	Quantity          int       `field:"quantity" json:"quantity,omitempty"`
-	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt,omitempty"`
-	MaterialStatus    string    `field:"material_status" json:"materialStatus,omitempty"`
+	MaterialID        int       `field:"material_id" json:"materialId"`
+	WarehouseName     string    `field:"warehouse_name" json:"warehouseName"`
+	StockID           string    `field:"stock_id" json:"stockId"`
+	ProgramID         int       `field:"program_id" json:"programId"`
+	ProgramName       string    `field:"program_name" json:"programName"`
+	IsActiveProgram   bool      `field:"is_active_program" json:"isActiveProgram"`
+	LocationID        int       `field:"location_id" json:"locationId"`
+	LocationName      string    `field:"location_name" json:"locationName"`
+	MaterialType      string    `field:"material_type" json:"materialType"`
+	Description       string    `field:"description" json:"description"`
+	Notes             string    `field:"notes" json:"notes"`
+	Quantity          int       `field:"quantity" json:"quantity"`
+	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt"`
+	MaterialStatus    string    `field:"material_status" json:"materialStatus"`
 	MinQty            int       `field:"min_required_quantity" json:"minQty"`
 	MaxQty            int       `field:"max_required_quantity" json:"maxQty"`
-	Owner             string    `field:"onwer" json:"owner,omitempty"`
-	IsPrimary         bool      `field:"is_primary" json:"isPrimary,omitempty"`
-	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange,omitempty"`
+	Owner             string    `field:"onwer" json:"owner"`
+	IsPrimary         bool      `field:"is_primary" json:"isPrimary"`
+	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange"`
 
 	// For Requests.
 	RequestID    int       `field:"request_id" json:"requestId,omitempty"`
