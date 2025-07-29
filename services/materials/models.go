@@ -53,8 +53,8 @@ type Material struct {
 	Quantity          int       `field:"quantity" json:"quantity,omitempty"`
 	UpdatedAt         time.Time `field:"updated_at" json:"updatedAt,omitempty"`
 	MaterialStatus    string    `field:"material_status" json:"materialStatus,omitempty"`
-	MinQty            int       `field:"min_required_quantity" json:"minQty,omitempty"`
-	MaxQty            int       `field:"max_required_quantity" json:"maxQty,omitempty"`
+	MinQty            int       `field:"min_required_quantity" json:"minQty"`
+	MaxQty            int       `field:"max_required_quantity" json:"maxQty"`
 	Owner             string    `field:"onwer" json:"owner,omitempty"`
 	IsPrimary         bool      `field:"is_primary" json:"isPrimary,omitempty"`
 	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange,omitempty"`
