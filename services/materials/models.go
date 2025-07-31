@@ -60,12 +60,12 @@ type Material struct {
 	SerialNumberRange string    `field:"serial_number_range" json:"serialNumberRange"`
 
 	// For Requests.
-	RequestID    int       `field:"request_id" json:"requestId,omitempty"`
-	Username     string    `field:"username" json:"username,omitempty"`
-	Status       string    `field:"status" json:"status,omitempty"`
-	QtyRequested int       `field:"quantity_requested" json:"qtyRequested,omitempty"`
-	QtyUsed      int       `field:"quantity_used" json:"qtyUsed,omitempty"`
-	RequestedAt  time.Time `field:"requested_at" json:"requestedAt,omitempty"`
+	RequestID    int       `field:"request_id" json:"requestId"`
+	Username     string    `field:"username" json:"username"`
+	Status       string    `field:"status" json:"status"`
+	QtyRequested int       `field:"quantity_requested" json:"qtyRequested"`
+	QtyUsed      int       `field:"quantity_used" json:"qtyUsed"`
+	RequestedAt  time.Time `field:"requested_at" json:"requestedAt"`
 }
 
 type Transaction struct {
