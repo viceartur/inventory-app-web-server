@@ -25,6 +25,7 @@ func main() {
 	// Auth
 	api.HandleFunc("/users/auth", routeHandlers.AuthUsersHandler).Methods("POST")
 	api.HandleFunc("/users", routeHandlers.CreateUserHandler).Methods("POST")
+	api.HandleFunc("/users/{userId}/password", routeHandlers.UpdateUserPasswordHandler).Methods("PATCH")
 
 	// WebSocket
 	api.HandleFunc("/ws/{userRole}", websocket.WsEndpoint)

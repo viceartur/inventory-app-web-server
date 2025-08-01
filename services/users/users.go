@@ -3,6 +3,7 @@ package users
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -15,6 +16,38 @@ type User struct {
 	Password string `json:"password,omitempty" field:"password"`
 	Role     string `json:"role" field:"role"`
 	Email    string `json:"email" field:"email"`
+}
+
+// Generates a random password of a specified length
+func generateRandomPassword() string {
+	const passwordLength = 12
+	lower := "abcdefghijklmnopqrstuvwxyz"
+	upper := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	digits := "0123456789"
+	special := "!@#$%^&*+-"
+	all := lower + upper + digits + special
+
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Ensure at least one character from each category
+	password := []byte{
+		lower[seededRand.Intn(len(lower))],
+		upper[seededRand.Intn(len(upper))],
+		digits[seededRand.Intn(len(digits))],
+		special[seededRand.Intn(len(special))],
+	}
+
+	// Fill the rest of the password with random characters from all sets
+	for i := len(password); i < passwordLength; i++ {
+		password = append(password, all[seededRand.Intn(len(all))])
+	}
+
+	// Shuffle the password
+	rand.Shuffle(len(password), func(i, j int) {
+		password[i], password[j] = password[j], password[i]
+	})
+
+	return string(password)
 }
 
 // AuthUser authenticates a user by checking the username and password against the database
@@ -104,34 +137,42 @@ func CreateUser(db *sql.DB, user User) (User, error) {
 	return user, nil
 }
 
-// Generates a random password of a specified length
-func generateRandomPassword() string {
-	const passwordLength = 12
-	lower := "abcdefghijklmnopqrstuvwxyz"
-	upper := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	digits := "0123456789"
-	special := "!@#$%^&*+-"
-	all := lower + upper + digits + special
+// UpdateUserPassword updates a user in the database with a hashed password
+func UpdateUserPassword(db *sql.DB, user User) (User, error) {
+	var userPassword string
 
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	// Ensure at least one character from each category
-	password := []byte{
-		lower[seededRand.Intn(len(lower))],
-		upper[seededRand.Intn(len(upper))],
-		digits[seededRand.Intn(len(digits))],
-		special[seededRand.Intn(len(special))],
+	if user.Password != "" {
+		userPassword = user.Password
+	} else {
+		userPassword = generateRandomPassword()
 	}
 
-	// Fill the rest of the password with random characters from all sets
-	for i := len(password); i < passwordLength; i++ {
-		password = append(password, all[seededRand.Intn(len(all))])
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return User{}, err
 	}
 
-	// Shuffle the password
-	rand.Shuffle(len(password), func(i, j int) {
-		password[i], password[j] = password[j], password[i]
-	})
+	// Update the user's password in the database
+	res, err := db.Exec(`
+			UPDATE users
+			SET password = $1
+			WHERE user_id = $2;
+		`, string(hashedPassword), user.UserID)
 
-	return string(password)
+	if err != nil {
+		return User{}, err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return User{}, err
+	}
+
+	if rowsAffected == 0 {
+		return User{}, fmt.Errorf("No user found.")
+	}
+
+	user.Password = userPassword
+
+	return user, nil
 }
