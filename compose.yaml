@@ -2,6 +2,7 @@ services:
   frontend:
     build:
       context: ../Inventory-App-UI
+    image: inventory-app-frontend
     ports:
       - "3000:3000"
     depends_on:
@@ -11,5 +12,6 @@ services:
   backend:
     build:
       context: .
+    image: inventory-app-backend
     network_mode: host
     restart: always
