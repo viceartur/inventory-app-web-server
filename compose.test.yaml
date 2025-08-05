@@ -8,6 +8,8 @@ services:
     depends_on:
       - backend
     restart: always
+    environment:
+      - PORT=3100
     env_file:
       - ../Inventory-App-UI/.env.test
 
