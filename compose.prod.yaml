@@ -13,5 +13,11 @@ services:
     build:
       context: .
     image: inventory-app-backend
+    ports:
+      - "8080:8080"
     network_mode: host
     restart: always
+# Run:
+# docker compose -f compose.prod.yml -p inventory-app-prod up -d --build
+# Stop:
+# docker compose -f compose.prod.yml -p inventory-app-prod down --volumes --rmi all
