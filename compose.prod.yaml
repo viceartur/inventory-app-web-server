@@ -2,22 +2,27 @@ services:
   frontend:
     build:
       context: ../Inventory-App-UI
-    image: inventory-app-frontend
+    image: inventory-app-frontend-prod
     ports:
       - "3000:3000"
     depends_on:
       - backend
     restart: always
+    env_file:
+      - ../Inventory-App-UI/.env
+      - ../Inventory-App-UI/.env.local
 
   backend:
     build:
       context: .
-    image: inventory-app-backend
+    image: inventory-app-backend-prod
     ports:
       - "8080:8080"
     network_mode: host
     restart: always
+    env_file:
+      - .env
 # Run:
-# docker compose -f compose.prod.yml -p inventory-app-prod up -d --build
+# docker compose -f compose.prod.yaml -p inventory-app-prod up -d --build
 # Stop:
-# docker compose -f compose.prod.yml -p inventory-app-prod down --volumes --rmi all
+# docker compose -f compose.prod.yaml -p inventory-app-prod down --volumes --rmi all

@@ -1,24 +1,27 @@
-version: "3.8"
-
 services:
   frontend:
     build:
       context: ../Inventory-App-UI
-    image: inventory-app-frontend:test
+    image: inventory-app-frontend-test
     ports:
-      - "3100:3000"
+      - "3100:3100"
     depends_on:
       - backend
     restart: always
+    env_file:
+      - ../Inventory-App-UI/.env.test
 
   backend:
     build:
       context: .
-    image: inventory-app-backend:test
+    image: inventory-app-backend-test
     ports:
-      - "8181:8080"
+      - "8181:8181"
+    network_mode: host
     restart: always
+    env_file:
+      - .env.test
 # Run:
-# docker compose -f compose.test.yml -p inventory-app-test up -d --build
+# docker compose -f compose.test.yaml -p inventory-app-test up -d --build
 # Stop:
-# docker compose -f compose.test.yml -p inventory-app-test down --volumes --rmi all
+# docker compose -f compose.test.yaml -p inventory-app-test down --volumes --rmi all
