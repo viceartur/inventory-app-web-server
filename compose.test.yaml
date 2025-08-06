@@ -7,6 +7,7 @@ services:
       context: ../Inventory-App-UI
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
         NEXTAUTH_URL: ${NEXTAUTH_URL}
         AUTH_SECRET: ${AUTH_SECRET}
         AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
