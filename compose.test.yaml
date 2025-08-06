@@ -21,6 +21,22 @@ services:
     restart: always
     env_file:
       - .env.test
+
+  postgres-test:
+    image: postgres:15
+    container_name: postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: tag_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  pgdata_test:
 # Run:
 # docker compose -f compose.test.yaml -p inventory-app-test up -d --build
 # Stop:
