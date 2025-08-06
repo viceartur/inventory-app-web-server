@@ -10,6 +10,8 @@ services:
     depends_on:
       - backend
     restart: always
+    environment:
+      - PORT=3100
 
   backend:
     build:
@@ -21,6 +23,8 @@ services:
     restart: always
     env_file:
       - .env.test
+    environment:
+      - PORT=8181
 
   postgres-test:
     image: postgres:15

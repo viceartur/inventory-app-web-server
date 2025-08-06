@@ -12,6 +12,8 @@ services:
     restart: always
     env_file:
       - ../Inventory-App-UI/.env
+    environment:
+      - PORT=3000
 
   backend:
     build:
@@ -23,6 +25,8 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - PORT=8080
 # Run:
 # docker compose -f compose.prod.yaml -p inventory-app-prod up -d --build
 # Stop:
