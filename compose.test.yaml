@@ -1,17 +1,22 @@
 services:
   frontend:
-    build:
-      context: ../Inventory-App-UI
     image: inventory-app-frontend-test
     ports:
       - "3100:3100"
+    build:
+      context: ../Inventory-App-UI
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXTAUTH_URL: ${NEXTAUTH_URL}
+        AUTH_SECRET: ${AUTH_SECRET}
+        AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
     depends_on:
       - backend
     restart: always
-    environment:
-      - PORT=3100
     env_file:
       - ../Inventory-App-UI/.env.test
+    environment:
+      - PORT=3100
 
   backend:
     build:
@@ -40,6 +45,6 @@ services:
 volumes:
   pgdata_test:
 # Run:
-# docker compose -f compose.test.yaml -p inventory-app-test up -d --build
+# docker-compose -f compose.test.yaml --env-file ../Inventory-App-UI/.env.test up --build -d
 # Stop:
 # docker compose -f compose.test.yaml -p inventory-app-test down --volumes --rmi all
