@@ -36,5 +36,7 @@ func ConnectToDB() (*sql.DB, error) {
 		return nil, errors.New(err.Error())
 	}
 
+	log.Print("Connected to the database: ", psqlInfo)
+
 	return db, nil
 }
