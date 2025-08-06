@@ -10,7 +10,6 @@ services:
     restart: always
     env_file:
       - ../Inventory-App-UI/.env
-      - ../Inventory-App-UI/.env.local
 
   backend:
     build:
