@@ -2,6 +2,8 @@ services:
   frontend:
     build:
       context: ../Inventory-App-UI
+      args:
+        ENV_FILE: .env
     image: inventory-app-frontend-prod
     ports:
       - "3000:3000"
