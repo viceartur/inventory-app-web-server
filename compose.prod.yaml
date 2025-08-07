@@ -30,4 +30,4 @@ services:
 # Run:
 # docker compose -f compose.prod.yaml -p inventory-app-prod up -d --build
 # Stop:
-# docker compose -f compose.prod.yaml -p inventory-app-prod down --volumes --rmi all
+# docker compose -f compose.prod.yaml -p inventory-app-prod down --rmi all

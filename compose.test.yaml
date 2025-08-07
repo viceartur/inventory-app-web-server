@@ -42,6 +42,6 @@ services:
 volumes:
   pgdata_test:
 # Run:
-# docker-compose -f compose.test.yaml --env-file ../Inventory-App-UI/.env.test up --build -d
+# docker compose -f compose.test.yaml -p inventory-app-test up --build -d
 # Stop:
-# docker compose -f compose.test.yaml -p inventory-app-test down --volumes --rmi all
+# docker compose -f compose.test.yaml -p inventory-app-test down --rmi all
