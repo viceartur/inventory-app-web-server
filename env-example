@@ -1,0 +1,15 @@
+PORT=8080
+
+# Database
+DB_HOST=localhost
+DB_PORT=5433
+DB_USER=username
+DB_PASSWORD=password
+DB_NAME=db_name
+
+# Email serivce
+SMTP_USER=user@example.com
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_PASS=password
+SMTP_FROM=user_from@example.com

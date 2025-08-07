@@ -1,34 +1,27 @@
-package main
+package warehouses
 
 import (
 	"database/sql"
-	"log"
 )
 
-type WarehouseJSON struct {
-	WarehouseName string `json:"warehouseName"`
-	LocationName  string `json:"locationName"`
+type Warehouse struct {
+	WarehouseID   int    `field:"id" json:"warehouseId"`
+	WarehouseName string `field:"warehouse_name" json:"warehouseName"`
+	LocationName  string `field:"location_name" json:"locationName"`
 }
 
-type WarehouseDB struct {
-	WarehouseID   int    `field:"warehouse_id"`
-	WarehouseName string `field:"name"`
-}
-
-func fetchWarehouses(db *sql.DB) ([]WarehouseDB, error) {
+func FetchWarehouses(db *sql.DB) ([]Warehouse, error) {
 	rows, err := db.Query("SELECT * FROM warehouses;")
 	if err != nil {
-		log.Println("Error fetchWarehouses1: ", err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	var warehouses []WarehouseDB
+	var warehouses []Warehouse
 
 	for rows.Next() {
-		var warehouse WarehouseDB
+		var warehouse Warehouse
 		if err := rows.Scan(&warehouse.WarehouseID, &warehouse.WarehouseName); err != nil {
-			log.Println("Error fetchWarehouses2: ", err)
 			return warehouses, err
 		}
 		warehouses = append(warehouses, warehouse)
@@ -40,8 +33,8 @@ func fetchWarehouses(db *sql.DB) ([]WarehouseDB, error) {
 	return warehouses, nil
 }
 
-func createWarehouse(warehouse WarehouseJSON, db *sql.DB) error {
-	warehouses, err := fetchWarehouses(db)
+func CreateWarehouse(warehouse Warehouse, db *sql.DB) error {
+	warehouses, err := FetchWarehouses(db)
 
 	if err != nil {
 		return err

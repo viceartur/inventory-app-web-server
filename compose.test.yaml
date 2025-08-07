@@ -1,0 +1,47 @@
+services:
+  frontend:
+    image: inventory-app-frontend-test
+    ports:
+      - "3100:3100"
+    build:
+      context: ../Inventory-App-UI
+      args:
+        ENV_FILE: .env.test
+    depends_on:
+      - backend
+    restart: always
+    environment:
+      - PORT=3100
+
+  backend:
+    build:
+      context: .
+    image: inventory-app-backend-test
+    ports:
+      - "8181:8181"
+    network_mode: host
+    restart: always
+    env_file:
+      - .env.test
+    environment:
+      - PORT=8181
+
+  postgres-test:
+    image: postgres:15
+    container_name: postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: tag_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  pgdata_test:
+# Run:
+# docker compose -f compose.test.yaml -p inventory-app-test up --build -d
+# Stop:
+# docker compose -f compose.test.yaml -p inventory-app-test down --rmi all
