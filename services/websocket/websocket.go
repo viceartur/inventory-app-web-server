@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"database/sql"
 	"encoding/json"
 	"inv_app/database"
 	"inv_app/services/materials"
@@ -40,6 +41,14 @@ func removeClient(conn *websocket.Conn) {
 
 func reader(conn *websocket.Conn) {
 	defer removeClient(conn)
+
+	db, err := database.ConnectToDB()
+	if err != nil {
+		log.Println("DB connection error:", err)
+		return
+	}
+	defer db.Close()
+
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
@@ -51,23 +60,20 @@ func reader(conn *websocket.Conn) {
 
 		switch msgType {
 		case "materialsUpdated":
-			handleSendMaterial()
+			handleSendMaterial(db)
 		case "vaultUpdated":
-			handleSendVault()
+			handleSendVault(db)
 		case "requestedMaterialsUpdated":
-			isUpdated := true
-			handleRequestMaterial(isUpdated)
+			handleRequestMaterial(db, true)
 		case "requestedMaterialsRemoved":
-			isUpdated := false
-			handleRequestMaterial(isUpdated)
+			handleRequestMaterial(db, false)
 		default:
 			log.Println("WS unknown message type:", msgType)
 		}
 	}
 }
 
-func handleSendMaterial() {
-	db, _ := database.ConnectToDB()
+func handleSendMaterial(db *sql.DB) {
 	count, err := materials.GetIncomingWarehouseMaterialsCount(db)
 	if err != nil {
 		log.Println("WS error getting warehouse materials count:", err)
@@ -78,8 +84,7 @@ func handleSendMaterial() {
 	broadcastMessage(msg)
 }
 
-func handleSendVault() {
-	db, _ := database.ConnectToDB()
+func handleSendVault(db *sql.DB) {
 	count, err := materials.GetIncomingVaultMaterialsCount(db)
 	if err != nil {
 		log.Println("WS error getting vault materials count:", err)
@@ -91,8 +96,7 @@ func handleSendVault() {
 }
 
 // Handle the current requested materials quantity based on the state provided.
-func handleRequestMaterial(isUpdated bool) {
-	db, _ := database.ConnectToDB()
+func handleRequestMaterial(db *sql.DB, isUpdated bool) {
 	count, err := materials.GetRequestedMaterialsCount(db)
 
 	if err != nil {
