@@ -806,7 +806,7 @@ func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 		SELECT EXISTS(
 			SELECT 1 
 			FROM prices 
-			WHERE cost > 0 AND material_id = $1
+			WHERE quantity > 0 AND cost > 0 AND material_id = $1
     		)
 		`, materialId).Scan(&hasPrice)
 		if err != nil {
