@@ -800,6 +800,27 @@ func UpdateMaterial(ctx context.Context, db *sql.DB, material MaterialJSON) erro
 			return err
 		}
 	} else {
+		// Check if a Material has Prices
+		var hasPrice bool
+		err = tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 
+			FROM prices 
+			WHERE cost > 0 AND material_id = $1
+    		)
+		`, materialId).Scan(&hasPrice)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		if hasPrice {
+			return fmt.Errorf(`
+			Cannot update this material because it already has a recorded purchase price.
+			To adjust stock, please create a new shipment request through the CSR.
+			`)
+		}
+
 		// Update a Material quantity
 		qty := material.Qty
 
