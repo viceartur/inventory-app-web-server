@@ -1115,6 +1115,7 @@ func GetMaterialsGroupedByStockID(db *sql.DB) ([]Material, error) {
 			m.stock_id,
 			m.description,
 			m.material_status,
+			m.owner,
 			SUM(m.quantity) AS total_quantity
 		FROM materials m
 		LEFT JOIN customer_programs cp ON cp.program_id = m.program_id
@@ -1122,7 +1123,8 @@ func GetMaterialsGroupedByStockID(db *sql.DB) ([]Material, error) {
 			cp.program_name,
 			m.stock_id,
 			m.description,
-			m.material_status
+			m.material_status,
+			m.owner
 		ORDER BY stock_id;
 		`)
 	if err != nil {
@@ -1138,6 +1140,7 @@ func GetMaterialsGroupedByStockID(db *sql.DB) ([]Material, error) {
 			&material.StockID,
 			&material.Description,
 			&material.MaterialStatus,
+			&material.Owner,
 			&material.Quantity,
 		); err != nil {
 			return nil, fmt.Errorf("Error scanning row: %w", err)
